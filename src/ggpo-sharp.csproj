@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>GGPOSharp</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Backends\**" />
+    <Compile Remove="Network\**" />
+    <EmbeddedResource Remove="Backends\**" />
+    <EmbeddedResource Remove="Network\**" />
+    <None Remove="Backends\**" />
+    <None Remove="Network\**" />
+  </ItemGroup>
+
+</Project>

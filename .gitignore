@@ -1,4 +1,4 @@
-# Ignore visual studio directies and local files
+# Ignore visual studio directories and local files
 .vscode
 
 # Prerequisites
@@ -33,3 +33,7 @@
 *.exe
 *.out
 *.app
+
+# Ignore object directories and VS specific files
+[Oo]bj/
+.vs/

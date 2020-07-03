@@ -36,4 +36,5 @@
 
 # Ignore object directories and VS specific files
 [Oo]bj/
+[Bb]in/
 .vs/

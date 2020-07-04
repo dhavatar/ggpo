@@ -7,6 +7,9 @@ using System.Text;
 
 namespace GGPOSharp
 {
+    /// <summary>
+    /// Class containing the inputs for the game in bit form.
+    /// </summary>
     public struct GameInput
     {
         // TODO: Allow other people to change this logger
@@ -26,6 +29,13 @@ namespace GGPOSharp
 
         public bool IsNull() => frame == NullFrame;
 
+        /// <summary>
+        /// Constructor that includes the frame and input bit information with an offset on how to copy the bits..
+        /// </summary>
+        /// <param name="frame">The frame for this input.</param>
+        /// <param name="bits">Source input bits for this frame of input.</param>
+        /// <param name="size">The size of the input bit array to copy.</param>
+        /// <param name="offset">Offset in the destination array on where the source bits will copy to.</param>
         public GameInput(int frame, byte[] bits, uint size, int offset)
         {
             Debug.Assert(size > 0);
@@ -41,6 +51,12 @@ namespace GGPOSharp
             }
         }
 
+        /// <summary>
+        /// Constructor that includes the frame and input bit information.
+        /// </summary>
+        /// <param name="frame">The frame for this input.</param>
+        /// <param name="bits">Source input bits for this frame of input.</param>
+        /// <param name="size">The size of the input bit array to copy.</param>
         public GameInput(int frame, byte[] bits, uint size)
         {
             Debug.Assert(size > 0);
@@ -56,6 +72,11 @@ namespace GGPOSharp
             }
         }
 
+        /// <summary>
+        /// Gets the byte position from the array.
+        /// </summary>
+        /// <param name="i">Byte position to retrieve from the array.</param>
+        /// <returns>The byte information from the array.</returns>
         public bool this[int i]
         {
             get
@@ -64,27 +85,43 @@ namespace GGPOSharp
             }
         }
 
+        /// <summary>
+        /// Sets the specified byte to 1.
+        /// </summary>
+        /// <param name="i">Byte position to set.</param>
         public void Set(int i)
         {
             bits[i / 8] |= (byte)(1 << (i % 8));
         }
 
+        /// <summary>
+        /// Clears the specified byte to 0.
+        /// </summary>
+        /// <param name="i">Byte position to clear.</param>
         public void Clear(int i)
         {
             bits[i / 8] &= (byte)~(1 << (i % 8));
         }
 
+        /// <summary>
+        /// Clears the input and resets everything to 0.
+        /// </summary>
         public void Erase()
         {
             Array.Clear(bits, 0, bits.Length);
         }
 
-        public string ToString(bool show_frame = true)
+        /// <summary>
+        /// Converts the game input into a string form.
+        /// </summary>
+        /// <param name="showFrame">True if the frame information should be included in the string.</param>
+        /// <returns>The string form of the game input byte array.</returns>
+        public string ToString(bool showFrame = true)
         {
             Debug.Assert(size > 0);
 
             string retVal;
-            if (show_frame)
+            if (showFrame)
             {
                 retVal = $"(frame:{frame} size:{size} ";
             }
@@ -103,14 +140,25 @@ namespace GGPOSharp
             return builder.ToString();
         }
 
-        public void Log(string prefix, bool show_frame = true)
+        /// <summary>
+        /// Helper method to log game input state.
+        /// </summary>
+        /// <param name="prefix">String prefix to add to the string log.</param>
+        /// <param name="showFrame">True if the frame information should be included. Defaults to true.</param>
+        public void Log(string prefix, bool showFrame = true)
         {
-            Logger.Log(prefix + ToString(show_frame));
+            Logger.Log(prefix + ToString(showFrame));
         }
 
-        public bool Equal(in GameInput other, bool bitsonly = false)
+        /// <summary>
+        /// Comparison function between two game inputs.
+        /// </summary>
+        /// <param name="other">The <see cref="GameInput"/> to compare against.</param>
+        /// <param name="bitsOnly">True if only the bits will be compared and ignores the frame. Defaults to false.</param>
+        /// <returns>True if the two game inputs bits match and the frames match (if bitsOnly is false).</returns>
+        public bool Equal(in GameInput other, bool bitsOnly = false)
         {
-            if (!bitsonly && frame != other.frame)
+            if (!bitsOnly && frame != other.frame)
             {
                 Logger.Log($"frames don't match: {frame}, {other.frame}\n");
             }
@@ -124,7 +172,7 @@ namespace GGPOSharp
             }
 
             Debug.Assert(size > 0 && other.size > 0);
-            return (bitsonly || frame == other.frame) &&
+            return (bitsOnly || frame == other.frame) &&
                    size == other.size &&
                    bits.SequenceEqual(other.bits);
         }

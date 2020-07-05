@@ -7,15 +7,13 @@
     public interface IGGPOSessionCallbacks
     {
         /// <summary>
-        /// The client should allocate a buffer, copy the entire contents of the current game
-        /// state into it, and copy the length into the len parameter.  Optionally, the client
-        /// can compute a checksum of the data and store it in the checksum argument.
+        /// The client should allocate a buffer and copy the entire contents of the current game
+        /// state into it. Optionally, the client can compute a checksum of the data and store
+        /// it in the checksum.
         /// </summary>
-        /// <param name="buffer">Buffer of the game state.</param>
-        /// <param name="checksum"></param>
-        /// <param name="frame">Current frame of the game.</param>
+        /// <param name="frame">Current <see cref="Sync.SavedFrame"/> state of the game.</param>
         /// <returns></returns>
-        bool SaveGameState(byte[] buffer, int checksum, int frame);
+        bool SaveGameState(ref Sync.SavedFrame frame);
 
         /// <summary>
         /// GGPO.net will call this function at the beginning of a rollback. The buffer and

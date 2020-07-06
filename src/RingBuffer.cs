@@ -6,7 +6,7 @@ namespace GGPOSharp
     /// Generic ring buffer.
     /// </summary>
     /// <typeparam name="T">Type of item to store in the ring buffer.</typeparam>
-    public class RingBuffer<T>
+    class RingBuffer<T>
     {
         /// <summary>
         /// Current number of items in the ring buffer.

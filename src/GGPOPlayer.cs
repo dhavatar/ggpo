@@ -12,6 +12,9 @@
         public int playerNum;
     }
 
+    /// <summary>
+    /// The structure used to describe players in <see cref="GGPOSession.AddPlayer(GGPOPlayer, out int)"/>
+    /// </summary>
     public struct GGPOPlayer
     {
         /// <summary>

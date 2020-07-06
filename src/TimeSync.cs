@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace GGPOSharp
 {
-    public class TimeSync
+    class TimeSync
     {
         // TODO: Allow other people to change this logger
         private static readonly ILog Logger = ConsoleLogger.GetLogger();

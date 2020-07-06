@@ -6,7 +6,7 @@ namespace GGPOSharp
     /// Generic static buffer array.
     /// </summary>
     /// <typeparam name="T">Type of item for the buffer to use.</typeparam>
-    public class StaticBuffer<T>
+    class StaticBuffer<T>
     {
         protected T[] data;
 

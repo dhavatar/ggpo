@@ -3,7 +3,7 @@
     /// <summary>
     /// Class containing constants used in GGPO.
     /// </summary>
-    public static class Constants
+    static class Constants
     {
         public const int MaxPlayers = 4;
         public const int MaxPredictionFrames = 8;

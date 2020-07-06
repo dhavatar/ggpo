@@ -8,6 +8,8 @@ namespace GGPOSharp
     /// </summary>
     public abstract class GGPOSession
     {
+        protected IGGPOSessionCallbacks callbacks;
+
         /// <summary>
         /// Must be called for each player in the session (e.g. in a 3 player session, must
         /// be called 3 times).
@@ -63,11 +65,6 @@ namespace GGPOSharp
         /// </summary>
         /// <returns><see cref="GGPOErrorCode"/> result of the operation.</returns>
         public virtual GGPOErrorCode AdvanceFrame()
-        {
-            return GGPOErrorCode.OK;
-        }
-
-        public virtual GGPOErrorCode Chat(string text)
         {
             return GGPOErrorCode.OK;
         }

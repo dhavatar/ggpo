@@ -5,7 +5,7 @@ using System.Diagnostics;
 
 namespace GGPOSharp
 {
-    public class InputQueue
+    class InputQueue
     {
         // TODO: Allow other people to change this logger
         private static readonly ILog Logger = ConsoleLogger.GetLogger();

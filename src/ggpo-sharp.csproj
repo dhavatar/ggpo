@@ -6,17 +6,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Backends\**" />
-    <Compile Remove="Network\**" />
-    <EmbeddedResource Remove="Backends\**" />
-    <EmbeddedResource Remove="Network\**" />
-    <None Remove="Backends\**" />
-    <None Remove="Network\**" />
+    <Compile Remove="NewFolder\**" />
+    <EmbeddedResource Remove="NewFolder\**" />
+    <None Remove="NewFolder\**" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="SharpZipLib" Version="1.2.0" />
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="4.7.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Backends\" />
   </ItemGroup>
 
 </Project>

@@ -5,7 +5,7 @@ namespace GGPOSharp
     /// <summary>
     /// Class containing operations on bit vectors represented by a byte vector.
     /// </summary>
-    public static class Bitvector
+    static class Bitvector
     {
         public const int NibbleSize = 8;
 

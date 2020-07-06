@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 
 namespace GGPOSharp
 {
-    public class Sync
+    class Sync
     {
         // TODO: Allow other people to change this logger
         private static readonly ILog Logger = ConsoleLogger.GetLogger();
@@ -180,16 +180,12 @@ namespace GGPOSharp
             Log("Catching up");
             InRollback = true;
 
-            /*
-             * Flush our input queue and load the last frame.
-             */
+            // Flush our input queue and load the last frame.
             LoadFrame(seekTo);
             Debug.Assert(FrameCount == seekTo);
 
-            /*
-             * Advance frame by frame (stuffing notifications back to 
-             * the master).
-             */
+            // Advance frame by frame (stuffing notifications back to 
+            // the master).
             ResetPrediction(FrameCount);
             for (int i = 0; i < count; i++)
             {

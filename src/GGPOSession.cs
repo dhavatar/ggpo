@@ -8,7 +8,9 @@ namespace GGPOSharp
     /// </summary>
     public abstract class GGPOSession
     {
+        protected ILog logger;
         protected IGGPOSessionCallbacks callbacks;
+        protected int numPlayers;
 
         /// <summary>
         /// Must be called for each player in the session (e.g. in a 3 player session, must
@@ -42,7 +44,7 @@ namespace GGPOSharp
         /// that player will be zeroed and the i-th flag will be set. For example,
         /// if only player 3 has disconnected, disconnect flags will be 8 (i.e. 1 << 3).</param>
         /// <returns><see cref="GGPOErrorCode"/> result of the operation.</returns>
-        public abstract GGPOErrorCode SyncInput(byte[] values, int disconnectFlags);
+        public abstract GGPOErrorCode SyncInput(byte[] values, ref int disconnectFlags);
 
         /// <summary>
         /// Should be called periodically by your application to give GGPO.net
@@ -137,10 +139,9 @@ namespace GGPOSharp
         /// <summary>
         /// Used to write to the ggpo.net log.
         /// </summary>
-        /// <param name="logger"><see cref="ILog"/> type to use for outputing the log message.</param>
         /// <param name="msg">Log message to output.</param>
         /// <returns><see cref="GGPOErrorCode"/> on the result of the operation.</returns>
-        public virtual GGPOErrorCode Log(ILog logger, string msg)
+        public virtual GGPOErrorCode Log(string msg)
         {
             logger?.Log(msg);
             return GGPOErrorCode.OK;

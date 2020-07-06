@@ -7,6 +7,15 @@
     public interface IGGPOSessionCallbacks
     {
         /// <summary>
+        /// Called during a rollback. You should advance your game
+        /// state by exactly one frame. Before each frame, call SynchronizeInput
+        /// to retrieve the inputs you should use for that frame. After each frame,
+        /// you should call AdvanceFrame to notify GGPO.net that you're finished.
+        /// </summary>
+        /// <returns></returns>
+        bool AdvanceFrame();
+
+        /// <summary>
         /// The client should allocate a buffer and copy the entire contents of the current game
         /// state into it. Optionally, the client can compute a checksum of the data and store
         /// it in the checksum.
@@ -35,20 +44,35 @@
         bool LogGameState(string filename, byte[] buffer);
 
         /// <summary>
-        /// Called during a rollback. You should advance your game
-        /// state by exactly one frame. Before each frame, call SynchronizeInput
-        /// to retrieve the inputs you should use for that frame. After each frame,
-        /// you should call AdvanceFrame to notify GGPO.net that you're finished.
-        /// </summary>
-        /// <returns></returns>
-        bool AdvanceFrame();
-
-        /// <summary>
         /// Callback when the handshake with the game running on the other side of the network
         /// has been completed.
         /// </summary>
         /// <param name="playerId"></param>
         void OnConnected(int playerId);
+
+        /// <summary>
+        /// Callback when the connection to the player has been interrupted.
+        /// </summary>
+        /// <param name="playerId"></param>
+        /// <param name="disconnectTimeout"></param>
+        void OnConnectionInterrupted(int playerId, int disconnectTimeout);
+
+        /// <summary>
+        /// Callback when the connection to the player has been restored.
+        /// </summary>
+        /// <param name="playerId"></param>
+        void OnConnectionResumed(int playerId);
+
+        /// <summary>
+        /// Callback when the network connection on the other end of the network has closed.
+        /// </summary>
+        /// <param name="playerId"></param>
+        void OnDisconnected(int playerId);
+
+        /// <summary>
+        /// Callback when the session is now running.
+        /// </summary>
+        void OnRunning();
 
         /// <summary>
         /// Callback for beginning the synchronization process with the client on the other end of the
@@ -66,29 +90,10 @@
         void OnSyncrhonized(int playerId);
 
         /// <summary>
-        /// Callback when the network connection on the other end of the network has closed.
-        /// </summary>
-        /// <param name="playerId"></param>
-        void OnDisconnected(int playerId);
-
-        /// <summary>
         /// Callback when the time synchronziation code has determined that this client is too
         /// far ahead of the other one and should slow down to ensure fairness.
         /// </summary>
         /// <param name="framesAhead">How many frames ahead the client is.</param>
         void OnTimeSync(int framesAhead);
-
-        /// <summary>
-        /// Callback when the connection to the player has been interrupted.
-        /// </summary>
-        /// <param name="playerId"></param>
-        /// <param name="disconnectTimeout"></param>
-        void OnConnectionInterrupted(int playerId, int disconnectTimeout);
-
-        /// <summary>
-        /// Callback when the connection to the player has been restored.
-        /// </summary>
-        /// <param name="playerId"></param>
-        void OnConnectionResumed(int playerId);
     }
 }

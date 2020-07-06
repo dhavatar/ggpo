@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 
 namespace GGPOSharp
 {
-    class Sync
+    public class Sync
     {
         // TODO: Allow other people to change this logger
         private static readonly ILog Logger = ConsoleLogger.GetLogger();
@@ -14,7 +14,6 @@ namespace GGPOSharp
         public struct SavedFrame
         {
             public byte[] buffer;
-            public int size;
             public int frame;
             public int checksum;
 
@@ -204,7 +203,7 @@ namespace GGPOSharp
             SaveCurrentFrame();
         }
 
-        protected void LoadFrame(int frame)
+        public void LoadFrame(int frame)
         {
             // Find the frame in question
             if (frame == FrameCount)
@@ -228,7 +227,7 @@ namespace GGPOSharp
             savedState.head = (savedState.head + 1) % savedState.frames.Length;
         }
 
-        protected void SaveCurrentFrame()
+        public void SaveCurrentFrame()
         {
             // See StateCompress for the real save feature implemented by FinalBurn.
             // Write everything into the head, then advance the head pointer.
@@ -255,7 +254,7 @@ namespace GGPOSharp
             return i;
         }
 
-        protected ref SavedFrame GetLastSavedFrame()
+        public ref SavedFrame GetLastSavedFrame()
         {
             int i = savedState.head - 1;
             if (i < 0)

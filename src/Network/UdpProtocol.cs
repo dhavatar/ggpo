@@ -1,6 +1,8 @@
 ﻿using GGPOSharp.Interfaces;
+using GGPOSharp.Network.Events;
 using GGPOSharp.Network.Messages;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
@@ -22,7 +24,7 @@ namespace GGPOSharp.Network
 
         protected struct SyncState
         {
-            public long roundTripsRemaining;
+            public int roundTripsRemaining;
             public int random;
         }
 
@@ -36,7 +38,7 @@ namespace GGPOSharp.Network
         protected enum State
         {
             Syncing,
-            Synchronzied,
+            Synchronized,
             Running,
             Disconnected,
         }
@@ -51,6 +53,9 @@ namespace GGPOSharp.Network
         public int DisconnectTimeout { get; set; }
         public int DisconnectNotifyStart { get; set; }
 
+        public bool IsInitialized => udpClient != null;
+        public bool IsRunning => currentState == State.Running;
+        public bool IsSynchronized => currentState == State.Synchronized;
 
         // Network transmission information
         UdpClient udpClient;
@@ -99,6 +104,9 @@ namespace GGPOSharp.Network
         // Rift synchronization
         TimeSync timeSync;
 
+        // Event queue
+        RingBuffer<UdpProtocolEvent> eventQueue = new RingBuffer<UdpProtocolEvent>(64);
+
         ILog logger;
         Random random = new Random();
 
@@ -130,6 +138,37 @@ namespace GGPOSharp.Network
         {
             currentState = State.Disconnected;
             shutdownTimeout = Utility.GetCurrentTime() + NetworkConstants.UpdShutdownTimer;
+        }
+
+        public bool GetEvent(out UdpProtocolEvent evt)
+        {
+            if (eventQueue.IsEmpty)
+            {
+                evt = null;
+                return false;
+            }
+
+            evt = eventQueue.Front();
+            eventQueue.Pop();
+            return true;
+        }
+
+        public void Synchronize()
+        {
+            currentState = State.Syncing;
+            syncState.roundTripsRemaining = NetworkConstants.NumSyncPackets;
+            SendSyncRequest();
+        }
+
+        public bool GetPeerConnectStatus(int id, out int frame)
+        {
+            frame = peerConnectStatus[id].LastFrame;
+            return !peerConnectStatus[id].Disconnected;
+        }
+
+        public void OnMessage(NetworkMessage msg)
+        {
+            // TODO
         }
 
         public void Update()
@@ -188,7 +227,12 @@ namespace GGPOSharp.Network
                         lastReceiveTime + DisconnectNotifyStart < now)
                     {
                         logger.Log($"Endpoint has stopped receiving packets for {DisconnectNotifyStart} ms.  Sending notification.");
-                        // TODO: Event queue?
+
+                        var e = new NetworkInterruptedEvent
+                        {
+                            DisconnectTimeout = DisconnectTimeout - DisconnectNotifyStart
+                        };
+                        QueueEvent(e);
                         disconnectNotifySent = true;
                     }
 
@@ -197,7 +241,8 @@ namespace GGPOSharp.Network
                         !disconnectEventSent)
                     {
                         logger.Log($"Endpoint has stopped receiving packets for {DisconnectTimeout} ms.  Disconnecting.");
-                        // TODO: Event queue?
+
+                        QueueEvent(new UdpProtocolEvent(UdpProtocolEvent.Type.Disconnected));
                         disconnectEventSent = true;
                     }
                     break;
@@ -213,7 +258,27 @@ namespace GGPOSharp.Network
             }
         }
 
-        protected void SendInput(ref GameInput input)
+        public void SetLocalFrameNumber(int localFrame)
+        {
+            // Estimate which frame the other guy is one by looking at the
+            // last frame they gave us plus some delta for the one-way packet
+            // trip time.
+            long remoteFrame = lastReceivedInput.frame + (roundTripTime * 60 / 1000);
+
+            // Our frame advantage is how many frames *behind* the other guy
+            // we are.  Counter-intuative, I know.  It's an advantage because
+            // it means they'll have to predict more often and our moves will
+            // pop more frequenetly.
+            localFrameAdvantage = (int)remoteFrame - localFrame;
+        }
+
+        public int RecommendFrameDelay()
+        {
+            // XXX: require idle input should be a configuration parameter
+            return timeSync.RecommendFrameWaitDuration(false);
+        }
+
+        public void SendInput(ref GameInput input)
         {
             if (currentState == State.Running)
             {
@@ -230,6 +295,28 @@ namespace GGPOSharp.Network
             }
 
             SendPendingOutput();
+        }
+
+        public void SendInputAck()
+        {
+            var msg = new InputAckMessage
+            {
+                AckFrame = lastReceivedInput.frame,
+            };
+
+            SendMessage(msg);
+        }
+
+        public void GetNetworkStats(out GGPONetworkStats stats)
+        {
+            stats = new GGPONetworkStats
+            {
+                Ping = roundTripTime,
+                SendQueueLenth = pendingOutput.Size,
+                KbpsSent = kbpsSent,
+                RemoteFramesBehind = remoteFrameAdvantage,
+                LocalFramesBehind = localFrameAdvantage,
+            };
         }
 
         protected void SendPendingOutput()
@@ -305,16 +392,6 @@ namespace GGPOSharp.Network
             SendMessage(msg);
         }
 
-        protected void SendInputAck()
-        {
-            var msg = new InputAckMessage
-            {
-                AckFrame = lastReceivedInput.frame,
-            };
-
-            SendMessage(msg);
-        }
-
         protected void SendSyncRequest()
         {
             syncState.random = random.Next() & 0xFFFF;
@@ -359,9 +436,78 @@ namespace GGPOSharp.Network
 
         }
 
+        protected void QueueEvent(UdpProtocolEvent evt)
+        {
+            LogEvent("Queuing event", evt);
+            eventQueue.Push(evt);
+        }
+
+        protected void PumpSendQueue()
+        {
+            while (!sendQueue.IsEmpty)
+            {
+                QueueEntry entry = sendQueue.Front();
+
+                if (sendLatency > 0)
+                {
+                    // Should really come up with a gaussian distributation based on the configured
+                    // value, but this will do for now.
+                    int jitter = (sendLatency * 2 / 3) + ((random.Next() % sendLatency) / 3);
+                    if (Utility.GetCurrentTime() < sendQueue.Front().queueTime + jitter)
+                    {
+                        break;
+                    }
+                }
+
+                if (oopPercent > 0 && ooPacket.message != null && random.Next() % 100 < oopPercent)
+                {
+                    int delay = random.Next() % (sendLatency * 10 + 1000);
+                    logger.Log($"creating rogue oop (seq: {entry.message.SequenceNumber}  delay: {delay})");
+                    ooPacket.queueTime = Utility.GetCurrentTime() + delay;
+                    ooPacket.message = entry.message;
+                    ooPacket.destAddress = entry.destAddress;
+                }
+                else
+                {
+                    var byteMsg = entry.message.ToByteArray();
+                    udpClient.Send(byteMsg, byteMsg.Length);
+
+                    entry.message = null;
+                }
+
+                sendQueue.Pop();
+            }
+
+            if (ooPacket.message != null && ooPacket.queueTime < Utility.GetCurrentTime())
+            {
+                logger.Log("sending rogue oop!");
+                var ooMsg = ooPacket.message.ToByteArray();
+                udpClient.Send(ooMsg, ooMsg.Length);
+
+                ooPacket.message = null;
+            }
+        }
+
+        protected void ClearSendQueue()
+        {
+            while (!sendQueue.IsEmpty)
+            {
+                sendQueue.Front().message = null;
+                sendQueue.Pop();
+            }
+        }
+
         protected void LogMsg(string prefix, NetworkMessage msg)
         {
             logger.Log($"{prefix} {msg.GetLogMessage()}");
+        }
+
+        protected void LogEvent(string prefix, UdpProtocolEvent evt)
+        {
+            if (evt.EventType == UdpProtocolEvent.Type.Synchronized)
+            {
+                logger.Log($"{prefix} (event: Syncrhonized).");
+            }
         }
 
         protected bool OnInvalid(NetworkMessage msg)
@@ -403,7 +549,7 @@ namespace GGPOSharp.Network
 
             if (!connected)
             {
-                // TODO: Event queue
+                QueueEvent(new UdpProtocolEvent(UdpProtocolEvent.Type.Connected));
                 connected = true;
             }
 
@@ -411,14 +557,18 @@ namespace GGPOSharp.Network
             if (--syncState.roundTripsRemaining == 0)
             {
                 logger.Log("Syncrhonized!");
-                // TODO: Event queue
+                QueueEvent(new UdpProtocolEvent(UdpProtocolEvent.Type.Synchronized));
                 currentState = State.Running;
                 lastReceivedInput.frame = GameInput.NullFrame;
                 remoteMagicNumber = syncMsg.Magic;
             }
             else
             {
-                // TODO: Event queue
+                QueueEvent(new SynchronizingEvent
+                {
+                    Total = NetworkConstants.NumSyncPackets,
+                    Count = NetworkConstants.NumSyncPackets - syncState.roundTripsRemaining,
+                });
                 SendSyncRequest();
             }
 
@@ -436,7 +586,7 @@ namespace GGPOSharp.Network
                 if (currentState != State.Disconnected && !disconnectEventSent)
                 {
                     logger.Log("Disconnecting endpoint on remote request.");
-                    // TODO: Event queue
+                    QueueEvent(new UdpProtocolEvent(UdpProtocolEvent.Type.Disconnected));
                     disconnectEventSent = true;
                 }
             }
@@ -501,9 +651,14 @@ namespace GGPOSharp.Network
                         lastReceivedInput.frame = currentFrame;
 
                         // Send the event to the emulator
-                        // TODO: Event Queue
+                        var evt = new InputEvent
+                        {
+                            Input = lastReceivedInput,
+                        };
+
                         runningState.lastInputPacketReceiveTime = Utility.GetCurrentTime();
                         logger.Log($"Sending frame {lastReceivedInput.frame} to emu queue {queue} ({lastReceivedInput.ToString()}).");
+                        QueueEvent(evt);
                     }
                     else
                     {
@@ -567,93 +722,6 @@ namespace GGPOSharp.Network
         protected bool OnKeepAlive(NetworkMessage msg)
         {
             return true;
-        }
-
-        public void GetNetworkStats(out GGPONetworkStats stats)
-        {
-            stats = new GGPONetworkStats
-            {
-                Ping = roundTripTime,
-                SendQueueLenth = pendingOutput.Size,
-                KbpsSent = kbpsSent,
-                RemoteFramesBehind = remoteFrameAdvantage,
-                LocalFramesBehind = localFrameAdvantage,
-            };
-        }
-
-        public void SetLocalFrameNumber(int localFrame)
-        {
-            // Estimate which frame the other guy is one by looking at the
-            // last frame they gave us plus some delta for the one-way packet
-            // trip time.
-            long remoteFrame = lastReceivedInput.frame + (roundTripTime * 60 / 1000);
-
-            // Our frame advantage is how many frames *behind* the other guy
-            // we are.  Counter-intuative, I know.  It's an advantage because
-            // it means they'll have to predict more often and our moves will
-            // pop more frequenetly.
-            localFrameAdvantage = (int)remoteFrame - localFrame;
-        }
-
-        public int RecommendFrameDelay()
-        {
-            // XXX: require idle input should be a configuration parameter
-            return timeSync.RecommendFrameWaitDuration(false);
-        }
-
-        public void PumpSendQueue()
-        {
-            while (!sendQueue.IsEmpty)
-            {
-                QueueEntry entry = sendQueue.Front();
-
-                if (sendLatency > 0)
-                {
-                    // Should really come up with a gaussian distributation based on the configured
-                    // value, but this will do for now.
-                    int jitter = (sendLatency * 2 / 3) + ((random.Next() % sendLatency) / 3);
-                    if (Utility.GetCurrentTime() < sendQueue.Front().queueTime + jitter)
-                    {
-                        break;
-                    }
-                }
-
-                if (oopPercent > 0 && ooPacket.message != null && random.Next() % 100 < oopPercent)
-                {
-                    int delay = random.Next() % (sendLatency * 10 + 1000);
-                    logger.Log($"creating rogue oop (seq: {entry.message.SequenceNumber}  delay: {delay})");
-                    ooPacket.queueTime = Utility.GetCurrentTime() + delay;
-                    ooPacket.message = entry.message;
-                    ooPacket.destAddress = entry.destAddress;
-                }
-                else
-                {
-                    var byteMsg = entry.message.ToByteArray();
-                    udpClient.Send(byteMsg, byteMsg.Length);
-
-                    entry.message = null;
-                }
-
-                sendQueue.Pop();
-            }
-
-            if (ooPacket.message != null && ooPacket.queueTime < Utility.GetCurrentTime())
-            {
-                logger.Log("sending rogue oop!");
-                var ooMsg = ooPacket.message.ToByteArray();
-                udpClient.Send(ooMsg, ooMsg.Length);
-
-                ooPacket.message = null;
-            }
-        }
-
-        public void ClearSendQueue()
-        {
-            while (!sendQueue.IsEmpty)
-            {
-                sendQueue.Front().message = null;
-                sendQueue.Pop();
-            }
         }
     }
 }

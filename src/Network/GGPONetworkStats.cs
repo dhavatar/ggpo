@@ -12,7 +12,7 @@
         /// the higher the round-trip time between the clients. The send queue will
         /// also be longer than usual during high packet loss situations.
         /// </summary>
-        public int sendQueueLenth;
+        public int SendQueueLenth { get; set; }
 
         /// <summary>
         /// The number of inputs currently buffered by the GGPO.net network layer
@@ -20,7 +20,7 @@
         /// roughly equal to the current frame number minus the frame number of
         /// the last packet in the remote queue.
         /// </summary>
-        public int receiveQueueLength;
+        public int ReceiveQueueLength { get; set; }
 
         /// <summary>
         /// The roundtrip packet transmission time as calcuated by GGPO.net.
@@ -28,12 +28,12 @@
         /// transmission time + 2 the interval at which you call Idle
         /// or AdvanceFrame.
         /// </summary>
-        public int ping;
+        public long Ping { get; set; }
 
         /// <summary>
         /// The estimated bandwidth used between the two clients, in kilobits per second.
         /// </summary>
-        public int kbpsSent;
+        public int KbpsSent { get; set; }
 
         /// <summary>
         /// The number of frames GGPO.net calculates that the local client is
@@ -42,12 +42,12 @@
         /// the remote game client is running frame 1009, this value will mostly
         /// likely roughly equal 7.
         /// </summary>
-        public int localFramesBehind;
+        public int LocalFramesBehind { get; set; }
 
         /// <summary>
         /// The same as localFramesBehind, but calculated from the perspective of
         /// the remote player.
         /// </summary>
-        public int remoteFramesBehind;
+        public int RemoteFramesBehind { get; set; }
     }
 }

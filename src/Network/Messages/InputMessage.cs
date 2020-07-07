@@ -1,10 +1,13 @@
-﻿using System;
+﻿using GGPOSharp.Interfaces;
+using System;
 
 namespace GGPOSharp.Network.Messages
 {
     [Serializable]
-    public class InputMessage
+    public class InputMessage : NetworkMessage
     {
+        public override MessageType Type => MessageType.Input;
+
         public NetworkConnectStatus[] PeerConnectStatus { get; set; } = new NetworkConnectStatus[Constants.MaxPlayers];
 
         public int StartFrame { get; set; }
@@ -13,10 +16,15 @@ namespace GGPOSharp.Network.Messages
 
         public int AckFrame { get; set; }
 
-        public short NumBits { get; set; }
+        public ushort NumBits { get; set; }
 
-        public int InputSize { get; set; }
+        public uint InputSize { get; set; }
 
         public byte[] Bits { get; set; } = new byte[Constants.MaxCompressedBits];
+
+        public override string GetLogMessage()
+        {
+            return $"game-compressed-input {StartFrame} (+ {NumBits} bits)";
+        }
     }
 }

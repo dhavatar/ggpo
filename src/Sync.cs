@@ -62,7 +62,6 @@ namespace GGPOSharp
 
         public Sync(Config config)
         {
-            // TODO
             this.config = config;
             callbacks = config.callbacks;
             FrameCount = 0;

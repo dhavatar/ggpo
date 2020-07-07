@@ -1,4 +1,5 @@
-﻿using System;
+﻿using GGPOSharp.Interfaces;
+using System;
 
 namespace GGPOSharp.Network.Messages
 {
@@ -7,7 +8,13 @@ namespace GGPOSharp.Network.Messages
     /// network packets to the player.
     /// </summary>
     [Serializable]
-    class KeepAliveMessage
+    class KeepAliveMessage : NetworkMessage
     {
+        public override MessageType Type => MessageType.KeepAlive;
+
+        public override string GetLogMessage()
+        {
+            return "keep alive";
+        }
     }
 }

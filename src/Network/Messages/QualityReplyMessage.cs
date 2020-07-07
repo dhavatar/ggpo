@@ -1,10 +1,18 @@
-﻿using System;
+﻿using GGPOSharp.Interfaces;
+using System;
 
 namespace GGPOSharp.Network.Messages
 {
     [Serializable]
-    public class QualityReplyMessage
+    public class QualityReplyMessage : NetworkMessage
     {
-        public int Pong { get; set; }
+        public override MessageType Type => MessageType.QualityReply;
+
+        public long Pong { get; set; }
+
+        public override string GetLogMessage()
+        {
+            return "quality reply";
+        }
     }
 }

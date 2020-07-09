@@ -2,7 +2,6 @@
 using GGPOSharp.Network.Events;
 using GGPOSharp.Network.Messages;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
@@ -110,7 +109,7 @@ namespace GGPOSharp.Network
         ILog logger;
         Random random = new Random();
 
-        public UdpProtocol(int queue, string ipString, ushort port, NetworkConnectStatus[] status, ILog logger)
+        public UdpProtocol(int queue, string ipString, int port, NetworkConnectStatus[] status, ILog logger)
         {
             peerConnectStatus = new NetworkConnectStatus[Constants.MaxPlayers];
             localConnectStatus = status;
@@ -469,7 +468,7 @@ namespace GGPOSharp.Network
                 }
                 else
                 {
-                    var byteMsg = entry.message.ToByteArray();
+                    var byteMsg = Utility.GetByteArray(entry.message);
                     udpClient.Send(byteMsg, byteMsg.Length);
 
                     entry.message = null;
@@ -481,7 +480,7 @@ namespace GGPOSharp.Network
             if (ooPacket.message != null && ooPacket.queueTime < Utility.GetCurrentTime())
             {
                 logger.Log("sending rogue oop!");
-                var ooMsg = ooPacket.message.ToByteArray();
+                var ooMsg = Utility.GetByteArray(ooPacket.message);
                 udpClient.Send(ooMsg, ooMsg.Length);
 
                 ooPacket.message = null;

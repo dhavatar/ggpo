@@ -6,8 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="apps\VectorWarSharp\**" />
     <Compile Remove="NewFolder\**" />
+    <EmbeddedResource Remove="apps\VectorWarSharp\**" />
     <EmbeddedResource Remove="NewFolder\**" />
+    <None Remove="apps\VectorWarSharp\**" />
     <None Remove="NewFolder\**" />
   </ItemGroup>
 

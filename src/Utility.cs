@@ -8,7 +8,7 @@ namespace GGPOSharp
     /// <summary>
     /// Utility functions to help get the current time and other functions.
     /// </summary>
-    static class Utility
+    public static class Utility
     {
         /// <summary>
         /// Retrieves the current system time in milliseconds.
@@ -32,6 +32,52 @@ namespace GGPOSharp
                 bf.Serialize(ms, msg);
                 return ms.Length;
             }
+        }
+        
+        /// <summary>
+        /// Converts any object into a byte array.
+        /// </summary>
+        /// <param name="obj">Generic object to convert.</param>
+        /// <returns>A byte array representation of the object.</returns>
+        public static byte[] GetByteArray(object obj)
+        {
+            var bf = new BinaryFormatter();
+            using (var ms = new MemoryStream())
+            {
+                bf.Serialize(ms, obj);
+                return ms.ToArray();
+            }
+        }
+
+        /// <summary>
+        /// Simple checksum function stolen from wikipedia:
+        /// http://en.wikipedia.org/wiki/Fletcher%27s_checksum
+        /// </summary>
+        /// <param name="data">Data to compute the checksum.</param>
+        /// <param name="len">Block size of the computation.</param>
+        /// <returns>A checksum generated from the data.</returns>
+        public static int CreateChecksum(short[] data, int len)
+        {
+            int sum1 = 0xffff, sum2 = 0xffff;
+            int index = 0;
+
+            while (len > 0)
+            {
+                int tlen = len > 360 ? 360 : len;
+                len -= tlen;
+                do
+                {
+                    sum1 += data[index++];
+                    sum2 += sum1;
+                } while (--tlen > 0);
+                sum1 = (sum1 & 0xffff) + (sum1 >> 16);
+                sum2 = (sum2 & 0xffff) + (sum2 >> 16);
+            }
+
+            /* Second reduction step to reduce sums to 16 bits */
+            sum1 = (sum1 & 0xffff) + (sum1 >> 16);
+            sum2 = (sum2 & 0xffff) + (sum2 >> 16);
+            return sum2 << 16 | sum1;
         }
     }
 }

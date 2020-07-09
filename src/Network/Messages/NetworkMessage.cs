@@ -1,7 +1,5 @@
 ﻿using GGPOSharp.Network.Messages;
 using System;
-using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
 
 namespace GGPOSharp.Interfaces
 {
@@ -28,19 +26,5 @@ namespace GGPOSharp.Interfaces
         /// </summary>
         /// <returns>A string information about the message.</returns>
         public abstract string GetLogMessage();
-
-        /// <summary>
-        /// Converts the network message into a byte array to send through the network.
-        /// </summary>
-        /// <returns>A byte array representation of the network message.</returns>
-        public virtual byte[] ToByteArray()
-        {
-            var bf = new BinaryFormatter();
-            using (var ms = new MemoryStream())
-            {
-                bf.Serialize(ms, this);
-                return ms.ToArray();
-            }
-        }
     }
 }

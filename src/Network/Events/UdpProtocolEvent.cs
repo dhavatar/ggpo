@@ -26,6 +26,11 @@ namespace GGPOSharp.Network.Events
         public virtual Type EventType { get; set; }
 
         /// <summary>
+        /// Default constructor that does nothing.
+        /// </summary>
+        public UdpProtocolEvent() { }
+
+        /// <summary>
         /// Constructor that initializes the event type.
         /// </summary>
         /// <param name="type"><see cref="Type"/> of event.</param>

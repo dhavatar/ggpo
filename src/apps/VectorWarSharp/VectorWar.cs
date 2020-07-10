@@ -4,32 +4,54 @@ using GGPOSharp.Interfaces;
 using GGPOSharp.Logger;
 using System;
 using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using VectorWar.DataStructure;
 
 namespace VectorWar
 {
     public partial class VectorWar : Form, IGGPOSessionCallbacks
     {
+        static readonly Dictionary<Keys, int> InputTable = new Dictionary<Keys, int>()
+        {
+            { Keys.Up, (int)VectorWarInputs.Thrust },
+            { Keys.Down, (int)VectorWarInputs.Brake },
+            { Keys.Left, (int)VectorWarInputs.RotateLeft },
+            { Keys.Right, (int)VectorWarInputs.RotateRight },
+            { Keys.D, (int)VectorWarInputs.Fire },
+            { Keys.S, (int)VectorWarInputs.Bomb },
+        };
+
         /// <summary>
         /// Set to true if performing a sync test.
         /// </summary>
         public bool SyncTest { get; set; } = false;
 
+        public int LocalInputs { get; set; } = 0;
+
         private GameState gs;
         private NonGameState ngs = new NonGameState();
         private GGPOSession ggpo;
         private GdiRenderer renderer;
+        private PerformanceMonitor monitor = new PerformanceMonitor();
+
+        private long next, now = Utility.GetCurrentTime();
+
+        private Random random = new Random();
 
         public VectorWar()
         {
             InitializeComponent();
+            monitor.Hide();
+
+            renderer = new GdiRenderer(Bounds);
 
             Application.Idle += HandleApplicationIdle;
             Paint += VectorWar_Paint;
-
-            renderer = new GdiRenderer(Bounds);
+            KeyDown += VectorWar_KeyDown;
+            KeyUp += VectorWar_KeyUp;
         }
 
         /// <summary>
@@ -102,7 +124,13 @@ namespace VectorWar
         {
             while (IsApplicationIdle())
             {
-                GameUpdate();
+                now = Utility.GetCurrentTime();
+                if (now >= next)
+                {
+                    ggpo.Idle(0);
+                    GameUpdate();
+                    next = (long)(now + (1000 / 60f));
+                }
             }
         }
 
@@ -121,7 +149,106 @@ namespace VectorWar
         /// </summary>
         void GameUpdate()
         {
-            // ...
+            var result = GGPOErrorCode.OK;
+            int disconnectFlags = 0;
+            int[] inputs = new int[Constants.MaxShips];
+
+            if (ngs.LocalPlayerHandle != GGPOSharp.Constants.InvalidHandle)
+            {
+                if (SyncTest)
+                {
+                    LocalInputs = random.Next();
+                }
+
+                result = ggpo.AddLocalInput(ngs.LocalPlayerHandle, BitConverter.GetBytes(LocalInputs));
+            }
+
+            if (result == GGPOErrorCode.Success)
+            {
+                var inputBuffer = new byte[Constants.MaxShips * 4];
+                var bufferSpan = new Span<byte>(inputBuffer);
+
+                ggpo.SyncInput(ref inputBuffer, ref disconnectFlags);
+                if (result == GGPOErrorCode.Success)
+                {
+                    // Convert the byte buffer back into an int array
+                    for (int i = 0; i < inputs.Length; i++)
+                    {
+                        inputs[i] = BinaryPrimitives.ReadInt32LittleEndian(bufferSpan.Slice(i * 4, 4));
+                    }
+
+                    UpdateFrame(inputs, disconnectFlags);
+                }
+            }
+        }
+
+        private void UpdateFrame(int[] inputs, int disconnectFlags)
+        {
+            gs.Update(inputs, disconnectFlags);
+
+            // update the checksums to display in the top of the window.  this
+            // helps to detect desyncs.
+            ngs.ChecksumNow = new NonGameState.ChecksumInfo
+            {
+                frameNumber = gs.FrameNumber,
+                checksum = Utility.CreateChecksum(Utility.GetByteArray(gs)),
+            };
+
+            if ((gs.FrameNumber % 90) == 0)
+            {
+                ngs.ChecksumPeriodic = ngs.ChecksumNow;
+            }
+
+            // Notify ggpo that we've moved forward exactly 1 frame.
+            ggpo.AdvanceFrame();
+
+            // Update the performance monitor display.
+            int[] handles = new int[Constants.MaxPlayers];
+            int count = 0;
+            for (int i = 0; i < ngs.NumPlayers; i++)
+            {
+                if (ngs.players[i].type == GGPOPlayerType.Remote)
+                {
+                    handles[count++] = ngs.players[i].playerHandle;
+                }
+            }
+
+            monitor.Update(ggpo, handles, count);
+        }
+
+        public void DisconnectPlayer(int player)
+        {
+            if (player < ngs.NumPlayers)
+            {
+                string statusMsg = string.Empty;
+                GGPOErrorCode result = ggpo.DisconnectPlayer(player);
+                if (result == GGPOErrorCode.Success)
+                {
+                    statusMsg = $"Disconnected player {player}.";
+                }
+                else
+                {
+                    statusMsg = $"Error while disconnecting player (err:{result}).";
+                }
+
+                lblStatus.Text = statusMsg;
+            }
+        }
+
+        private void VectorWar_KeyUp(object sender, KeyEventArgs e)
+        {
+            if (InputTable.ContainsKey(e.KeyCode))
+            {
+                LocalInputs &= ~InputTable[e.KeyCode];
+            }
+        }
+
+        private void VectorWar_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (InputTable.ContainsKey(e.KeyCode))
+            {
+                LocalInputs |= InputTable[e.KeyCode];
+            }
         }
 
         private void VectorWar_Paint(object sender, PaintEventArgs e)
@@ -145,65 +272,93 @@ namespace VectorWar
 
         #region IGGPOSessionCallback Implementation
 
+        /// <summary>
+        /// Notification from GGPO we should step foward exactly 1 frame
+        /// during a rollback.
+        /// </summary>
+        /// <returns></returns>
         public bool AdvanceFrame()
         {
             int[] inputs = new int[Constants.MaxShips];
+            int disconnectFlags = 0;
+
             var inputBuffer = new byte[Constants.MaxShips * 4];
             var bufferSpan = new Span<byte>(inputBuffer);
 
+            // Make sure we fetch new inputs from GGPO and use those to update
+            // the game state instead of reading from the keyboard.
+            ggpo.SyncInput(ref inputBuffer, ref disconnectFlags);
+
+            // Convert the byte buffer back into an int array
             for (int i = 0; i < inputs.Length; i++)
             {
-                BinaryPrimitives.WriteInt32LittleEndian(bufferSpan.Slice(i * 4, 4), inputs[i]);
+                inputs[i] = BinaryPrimitives.ReadInt32LittleEndian(bufferSpan.Slice(i * 4, 4));
             }
 
-            int disconnectFlags = 0;
-            ggpo.SyncInput(Utility.GetByteArray(inputs), ref disconnectFlags);
-            gs.Update(inputs, disconnectFlags);
-
-            // update the checksums to display in the top of the window.  this
-            // helps to detect desyncs.
-            ngs.ChecksumNow = new NonGameState.ChecksumInfo
-            {
-                frameNumber = gs.FrameNumber,
-                //checksum = Utility.CreateChecksum(Utility.)
-            };
-
-            if ((gs.FrameNumber % 90) == 0)
-            {
-                ngs.ChecksumPeriodic = ngs.ChecksumNow;
-            }
-
-            // Notify ggpo that we've moved forward exactly 1 frame.
-            ggpo.AdvanceFrame();
-
-            // Update the performance monitor display.
-            int[] handles = new int[GGPOSharp.Constants.MaxPlayers];
-            int count = 0;
-            for (int i = 0; i < ngs.NumPlayers; i++)
-            {
-                if (ngs.players[i].type == GGPOPlayerType.Remote)
-                {
-                    handles[count++] = ngs.players[i].playerHandle;
-                }
-            }
-            //ggpoutil_perfmon_update(ggpo, handles, count);
-
+            UpdateFrame(inputs, disconnectFlags);
             return true;
         }
 
+        /// <summary>
+        /// Makes our current state match the state passed in by GGPO.
+        /// </summary>
+        /// <param name="frame"></param>
+        /// <returns></returns>
         public bool SaveGameState(ref Sync.SavedFrame frame)
         {
-            throw new NotImplementedException();
+            frame.buffer = gs;
+            frame.frame = gs.FrameNumber;
+            frame.checksum = Utility.CreateChecksum(Utility.GetByteArray(gs));
+            return true;
         }
 
-        public bool LoadGameState(byte[] buffer)
+        /// <summary>
+        /// Save the current state to a buffer and return it to GGPO via the
+        /// buffer and len parameters.
+        /// </summary>
+        /// <param name="state"></param>
+        /// <returns></returns>
+        public bool LoadGameState(IGameState state)
         {
-            throw new NotImplementedException();
+            gs = state as GameState;
+            return true;
         }
 
-        public bool LogGameState(string filename, byte[] buffer)
+        /// <summary>
+        /// Log the gamestate. Used by the synctest debugging tool.
+        /// </summary>
+        /// <param name="filename">Filename to write.</param>
+        /// <param name="state"><see cref="IGameState"/> object containing the current game state.</param>
+        /// <returns>True.</returns>
+        public bool LogGameState(string filename, IGameState state)
         {
-            throw new NotImplementedException();
+            using (System.IO.StreamWriter file = new System.IO.StreamWriter(filename))
+            {
+                var gameState = state as GameState;
+                file.WriteLine("GameState object.");
+                file.WriteLine($"  bounds: {gameState.Bounds.Left},{gameState.Bounds.Top} x {gameState.Bounds.Right},{gameState.Bounds.Bottom}.");
+                file.WriteLine($"  numShips: {gameState.NumberOfShips}.");
+
+                for (int i = 0; i < gameState.NumberOfShips; i++)
+                {
+                    Ship ship = gameState.Ships[i];
+                    file.WriteLine($"  ship {i} position:  {ship.position:F.4}");
+                    file.WriteLine($"  ship {i} velocity:  {ship.velocity:F.4}");
+                    file.WriteLine($"  ship {i} radius:    {ship.radius}.");
+                    file.WriteLine($"  ship {i} heading:   {ship.heading}.");
+                    file.WriteLine($"  ship {i} health:    {ship.health}.");
+                    file.WriteLine($"  ship {i} speed:     {ship.speed}.");
+                    file.WriteLine($"  ship {i} cooldown:  {ship.cooldown}.");
+                    file.WriteLine($"  ship {i} score:     {ship.score}.");
+
+                    for (int j = 0; j < Constants.MaxBullets; j++)
+                    {
+                        file.WriteLine($"  ship {i} bullet {j}: {ship.bullets[j].position:F.2} -> {ship.bullets[j].velocity:F.2}");
+                    }
+                }
+            }
+
+            return true;
         }
 
         public void OnConnected(int playerId)
@@ -222,6 +377,11 @@ namespace VectorWar
         }
 
         public void OnDisconnected(int playerId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void OnMsg(IAsyncResult res)
         {
             throw new NotImplementedException();
         }

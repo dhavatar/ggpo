@@ -2,11 +2,11 @@
 {
     enum VectorWarInputs : int
     {
-        InputThrust = (1 << 0),
-        InputBrake = (1 << 1),
-        InputRotateLeft = (1 << 2),
-        InputRotateRight = (1 << 3),
-        InputFire = (1 << 4),
-        InputBomb = (1 << 5),
+        Thrust = (1 << 0),
+        Brake = (1 << 1),
+        RotateLeft = (1 << 2),
+        RotateRight = (1 << 3),
+        Fire = (1 << 4),
+        Bomb = (1 << 5),
     }
 }

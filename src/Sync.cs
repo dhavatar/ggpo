@@ -13,7 +13,7 @@ namespace GGPOSharp
 
         public struct SavedFrame
         {
-            public byte[] buffer;
+            public IGameState buffer;
             public int frame;
             public int checksum;
 
@@ -139,7 +139,7 @@ namespace GGPOSharp
             return disconnectFlags;
         }
 
-        public int SyncrhonizeInputs(byte[] values)
+        public int SyncrhonizeInputs(ref byte[] values)
         {
             int disconnect_flags = 0;
 
@@ -215,7 +215,7 @@ namespace GGPOSharp
             savedState.head = FindSavedFrameIndex(frame);
             ref SavedFrame state = ref savedState.frames[savedState.head];
 
-            Log($"=== Loading frame info {state.frame} (size: {state.buffer.Length}  checksum: {state.checksum:X8}).");
+            Log($"=== Loading frame info {state.frame} (checksum: {state.checksum:X8}).");
 
             Debug.Assert(state.buffer != null);
             callbacks.LoadGameState(state.buffer);
@@ -234,7 +234,7 @@ namespace GGPOSharp
             state.frame = FrameCount;
             callbacks.SaveGameState(ref state);
 
-            Log($"=== Saved frame info {state.frame} (size: {state.buffer.Length}  checksum: {state.checksum:X8}).");
+            Log($"=== Saved frame info {state.frame} (checksum: {state.checksum:X8}).");
             savedState.head = (savedState.head + 1) % savedState.frames.Length;
         }
 

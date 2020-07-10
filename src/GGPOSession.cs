@@ -44,7 +44,7 @@ namespace GGPOSharp
         /// that player will be zeroed and the i-th flag will be set. For example,
         /// if only player 3 has disconnected, disconnect flags will be 8 (i.e. 1 << 3).</param>
         /// <returns><see cref="GGPOErrorCode"/> result of the operation.</returns>
-        public abstract GGPOErrorCode SyncInput(byte[] values, ref int disconnectFlags);
+        public abstract GGPOErrorCode SyncInput(ref byte[] values, ref int disconnectFlags);
 
         /// <summary>
         /// Should be called periodically by your application to give GGPO.net

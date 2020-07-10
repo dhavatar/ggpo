@@ -50,6 +50,20 @@ namespace GGPOSharp
         }
 
         /// <summary>
+        /// Byte array version of the checksum formula.
+        /// </summary>
+        /// <param name="data">Byte array data to compute the checksum.</param>
+        /// <returns>A checksum generated from the data.</returns>
+        public static int CreateChecksum(byte[] data)
+        {
+            var buffer = Utility.GetByteArray(data);
+            short[] sdata = new short[(int)Math.Ceiling(buffer.Length / 2.0)];
+            Buffer.BlockCopy(buffer, 0, sdata, 0, buffer.Length);
+
+            return CreateChecksum(sdata, sdata.Length / 2);
+        }
+
+        /// <summary>
         /// Simple checksum function stolen from wikipedia:
         /// http://en.wikipedia.org/wiki/Fletcher%27s_checksum
         /// </summary>

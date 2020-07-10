@@ -7,11 +7,11 @@ using VectorWar.DataStructure;
 namespace VectorWar
 {
     /// <summary>
-    ///  Encapsulates all the game state for the vector war application inside
+    /// Encapsulates all the game state for the vector war application inside
     /// a single structure. This makes it trivial to implement our GGPO
     /// save and load functions.
     /// </summary>
-    class GameState
+    class GameState : IGameState
     {
         private static readonly ILog logger = new ConsoleLogger();
 
@@ -60,11 +60,11 @@ namespace VectorWar
         {
             logger.Log($"parsing ship {index} inputs: {inputs}.");
 
-            if ((inputs & (int)VectorWarInputs.InputRotateRight) > 0)
+            if ((inputs & (int)VectorWarInputs.RotateRight) > 0)
             {
                 heading = (Ships[index].heading + Constants.RotateIncrement) % 360;
             }
-            else if ((inputs & (int)VectorWarInputs.InputRotateLeft) > 0)
+            else if ((inputs & (int)VectorWarInputs.RotateLeft) > 0)
             {
                 heading = (Ships[index].heading - Constants.RotateIncrement + 360) % 360;
             }
@@ -73,11 +73,11 @@ namespace VectorWar
                 heading = Ships[index].heading;
             }
 
-            if ((inputs & (int)VectorWarInputs.InputThrust) > 0)
+            if ((inputs & (int)VectorWarInputs.Thrust) > 0)
             {
                 thrust = Constants.ShipThrust;
             }
-            else if ((inputs & (int)VectorWarInputs.InputBrake) > 0)
+            else if ((inputs & (int)VectorWarInputs.Brake) > 0)
             {
                 thrust = -Constants.ShipThrust;
             }
@@ -86,7 +86,7 @@ namespace VectorWar
                 thrust = 0;
             }
 
-            fire = (inputs & (int)VectorWarInputs.InputFire) > 0;
+            fire = (inputs & (int)VectorWarInputs.Fire) > 0;
         }
 
         public void MoveShip(int index, double heading, double thrust, bool fire)

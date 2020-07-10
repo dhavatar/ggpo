@@ -29,7 +29,7 @@
         private void InitializeComponent()
         {
             this.groupBox1 = new System.Windows.Forms.GroupBox();
-            this.networkGraph = new System.Windows.Forms.PictureBox();
+            this.picNetworkGraph = new System.Windows.Forms.PictureBox();
             this.lblPacketLoss = new System.Windows.Forms.Label();
             this.lblBandwidth = new System.Windows.Forms.Label();
             this.lblFrameLag = new System.Windows.Forms.Label();
@@ -39,7 +39,7 @@
             this.label5 = new System.Windows.Forms.Label();
             this.label4 = new System.Windows.Forms.Label();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
-            this.fairnessGraph = new System.Windows.Forms.PictureBox();
+            this.picFairnessGraph = new System.Windows.Forms.PictureBox();
             this.lblRemoteAhead = new System.Windows.Forms.Label();
             this.lblLocalAhead = new System.Windows.Forms.Label();
             this.label3 = new System.Windows.Forms.Label();
@@ -48,14 +48,14 @@
             this.label1 = new System.Windows.Forms.Label();
             this.lblPid = new System.Windows.Forms.Label();
             this.groupBox1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.networkGraph)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.picNetworkGraph)).BeginInit();
             this.groupBox2.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.fairnessGraph)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.picFairnessGraph)).BeginInit();
             this.SuspendLayout();
             // 
             // groupBox1
             // 
-            this.groupBox1.Controls.Add(this.networkGraph);
+            this.groupBox1.Controls.Add(this.picNetworkGraph);
             this.groupBox1.Controls.Add(this.lblPacketLoss);
             this.groupBox1.Controls.Add(this.lblBandwidth);
             this.groupBox1.Controls.Add(this.lblFrameLag);
@@ -71,15 +71,15 @@
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Network";
             // 
-            // networkGraph
+            // picNetworkGraph
             // 
-            this.networkGraph.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.networkGraph.Location = new System.Drawing.Point(9, 20);
-            this.networkGraph.Name = "networkGraph";
-            this.networkGraph.Size = new System.Drawing.Size(444, 96);
-            this.networkGraph.TabIndex = 8;
-            this.networkGraph.TabStop = false;
-            this.networkGraph.Paint += new System.Windows.Forms.PaintEventHandler(this.networkGraph_Paint);
+            this.picNetworkGraph.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.picNetworkGraph.Location = new System.Drawing.Point(9, 20);
+            this.picNetworkGraph.Name = "picNetworkGraph";
+            this.picNetworkGraph.Size = new System.Drawing.Size(444, 96);
+            this.picNetworkGraph.TabIndex = 8;
+            this.picNetworkGraph.TabStop = false;
+            this.picNetworkGraph.Paint += new System.Windows.Forms.PaintEventHandler(this.networkGraph_Paint);
             // 
             // lblPacketLoss
             // 
@@ -155,7 +155,7 @@
             // 
             // groupBox2
             // 
-            this.groupBox2.Controls.Add(this.fairnessGraph);
+            this.groupBox2.Controls.Add(this.picFairnessGraph);
             this.groupBox2.Controls.Add(this.lblRemoteAhead);
             this.groupBox2.Controls.Add(this.lblLocalAhead);
             this.groupBox2.Controls.Add(this.label3);
@@ -167,15 +167,15 @@
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "Syncrhonization";
             // 
-            // fairnessGraph
+            // picFairnessGraph
             // 
-            this.fairnessGraph.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.fairnessGraph.Location = new System.Drawing.Point(9, 20);
-            this.fairnessGraph.Name = "fairnessGraph";
-            this.fairnessGraph.Size = new System.Drawing.Size(444, 121);
-            this.fairnessGraph.TabIndex = 4;
-            this.fairnessGraph.TabStop = false;
-            this.fairnessGraph.Paint += new System.Windows.Forms.PaintEventHandler(this.fairnessGraph_Paint);
+            this.picFairnessGraph.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.picFairnessGraph.Location = new System.Drawing.Point(9, 20);
+            this.picFairnessGraph.Name = "picFairnessGraph";
+            this.picFairnessGraph.Size = new System.Drawing.Size(444, 121);
+            this.picFairnessGraph.TabIndex = 4;
+            this.picFairnessGraph.TabStop = false;
+            this.picFairnessGraph.Paint += new System.Windows.Forms.PaintEventHandler(this.fairnessGraph_Paint);
             // 
             // lblRemoteAhead
             // 
@@ -258,10 +258,10 @@
             this.Text = "Performance Monitor";
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.networkGraph)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.picNetworkGraph)).EndInit();
             this.groupBox2.ResumeLayout(false);
             this.groupBox2.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.fairnessGraph)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.picFairnessGraph)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -286,7 +286,7 @@
         private System.Windows.Forms.Label label5;
         private System.Windows.Forms.Label lblRemoteAhead;
         private System.Windows.Forms.Label lblLocalAhead;
-        private System.Windows.Forms.PictureBox networkGraph;
-        private System.Windows.Forms.PictureBox fairnessGraph;
+        private System.Windows.Forms.PictureBox picNetworkGraph;
+        private System.Windows.Forms.PictureBox picFairnessGraph;
     }
 }

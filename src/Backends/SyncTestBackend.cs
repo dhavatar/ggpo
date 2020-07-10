@@ -12,7 +12,7 @@ namespace GGPOSharp.Backends
         {
             public int frame;
             public int checksum;
-            public byte[] buffer;
+            public IGameState buffer;
             public GameInput input;
         };
 
@@ -79,7 +79,7 @@ namespace GGPOSharp.Backends
             return GGPOErrorCode.OK;
         }
 
-        public override GGPOErrorCode SyncInput(byte[] values, ref int disconnectFlags)
+        public override GGPOErrorCode SyncInput(ref byte[] values, ref int disconnectFlags)
         {
             if (isRollingBack)
             {
@@ -119,12 +119,9 @@ namespace GGPOSharp.Backends
             {
                 frame = frame,
                 input = lastInput,
-                buffer = new byte[sync.GetLastSavedFrame().buffer.Length],
+                buffer = sync.GetLastSavedFrame().buffer,
                 checksum = sync.GetLastSavedFrame().checksum,
             };
-            Unsafe.CopyBlock(ref info.buffer[0],
-                ref sync.GetLastSavedFrame().buffer[0],
-                (uint)sync.GetLastSavedFrame().buffer.Length);
             savedFrames.Push(info);
 
             if (frame - lastVerified == checkDistance)

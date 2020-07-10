@@ -1,5 +1,6 @@
 ﻿using GGPOSharp.Interfaces;
 using GGPOSharp.Network;
+using System.Net.Sockets;
 
 namespace GGPOSharp.Backends
 {
@@ -17,9 +18,10 @@ namespace GGPOSharp.Backends
         protected int nextSpectatorFrame = 0;
         protected int disconnectTimeout = DefaultDisconnectTimeout;
         protected int disconnectNotifyStart = DefaultDisconnectNotifyStart;
-        protected NetworkConnectStatus[] localConnectStatus;
+        protected NetworkConnectStatus[] localConnectStatus = new NetworkConnectStatus[Constants.MaxPlayers];
         protected UdpProtocol[] endpoints;
         protected UdpProtocol[] spectators = new UdpProtocol[Constants.MaxSpectators];
+        protected UdpClient udp;
 
         public PeerToPeerBackend(IGGPOSessionCallbacks callbacks, ILog logger, int localPort, int numPlayers, int inputSize)
         {
@@ -41,7 +43,8 @@ namespace GGPOSharp.Backends
             });
 
             // Initialize the UDP port
-            // TODO
+            udp = new UdpClient(localPort);
+            udp.BeginReceive(new System.AsyncCallback(callbacks.OnMsg), null);
         }
 
         public override GGPOErrorCode AddLocalInput(int playerHandle, byte[] values)
@@ -119,7 +122,7 @@ namespace GGPOSharp.Backends
             return GGPOErrorCode.OK;
         }
 
-        public override GGPOErrorCode SyncInput(byte[] values, ref int disconnectFlags)
+        public override GGPOErrorCode SyncInput(ref byte[] values, ref int disconnectFlags)
         {
             if (!isSynchronizing)
             {
@@ -127,7 +130,7 @@ namespace GGPOSharp.Backends
                 return GGPOErrorCode.NotSynchronized;
             }
 
-            disconnectFlags = sync.SyncrhonizeInputs(values);
+            disconnectFlags = sync.SyncrhonizeInputs(ref values);
             return GGPOErrorCode.OK;
         }
 

@@ -1,4 +1,6 @@
-﻿namespace GGPOSharp.Interfaces
+﻿using System;
+
+namespace GGPOSharp.Interfaces
 {
     /// <summary>
     /// Interface contains the callback functions that the application must implement.
@@ -30,18 +32,18 @@
         /// function. The client should make the current game state match the state contained
         /// in the buffer.
         /// </summary>
-        /// <param name="buffer">Game state to load into the game.</param>
+        /// <param name="state">Game state to load into the game.</param>
         /// <returns></returns>
-        bool LoadGameState(byte[] buffer);
+        bool LoadGameState(IGameState state);
 
         /// <summary>
         /// Used in diagnostic testing. The client should use the log function to write the
         /// contents of the specified save state in a human readable form.
         /// </summary>
         /// <param name="filename">Name of the file to store the game state information.</param>
-        /// <param name="buffer">Game state buffer to log.</param>
+        /// <param name="state">Game state buffer to log.</param>
         /// <returns></returns>
-        bool LogGameState(string filename, byte[] buffer);
+        bool LogGameState(string filename, IGameState state);
 
         /// <summary>
         /// Callback when the handshake with the game running on the other side of the network
@@ -68,6 +70,12 @@
         /// </summary>
         /// <param name="playerId"></param>
         void OnDisconnected(int playerId);
+
+        /// <summary>
+        /// Callback for the network protocol when a new message has arrived.
+        /// </summary>
+        /// <param name="res"></param>
+        void OnMsg(IAsyncResult res);
 
         /// <summary>
         /// Callback when the session is now running.

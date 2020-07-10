@@ -5,11 +5,15 @@ using System;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 
 namespace GGPOSharp.Network
 {
     public class UdpProtocol
     {
+        // Size of IP + UDP headers
+        const int UdpHeaderSize = 28;
+
         public struct Stats
         {
             public int ping;
@@ -431,8 +435,19 @@ namespace GGPOSharp.Network
                 statsStartTime = now;
             }
 
+            long totalBytesSent = bytesSent + (UdpHeaderSize * packetsSent);
             float seconds = (now - statsStartTime) / 1000f;
+            float bps = totalBytesSent / seconds;
+            float udpOverhead = 100 * (UdpHeaderSize * packetsSent) / (float)bytesSent;
 
+            kbpsSent = (int)(bps / 1024);
+
+            var builder = new StringBuilder("Network Stats -- ");
+            builder.Append($"Bandwidth: {kbpsSent:F.2} KBps");
+            builder.Append($"   Packets Sent: {packetsSent:D5} ({packetsSent * 1000 / (float)(now - statsStartTime):F.2} pps)");
+            builder.Append($"   KB Sent: {totalBytesSent / 1024f:F.2}");
+            builder.Append($"   UDP Overhead: {udpOverhead:F.2} %.");
+            logger.Log(builder.ToString());
         }
 
         protected void QueueEvent(UdpProtocolEvent evt)

@@ -1,10 +1,10 @@
 ﻿using GGPOSharp.Network.Messages;
 using System;
 
-namespace GGPOSharp.Interfaces
+namespace GGPOSharp
 {
     /// <summary>
-    /// Base interface for the network messages that will be sent.
+    /// Base abstract class for the network messages that will be sent.
     /// </summary>
     [Serializable]
     public abstract class NetworkMessage

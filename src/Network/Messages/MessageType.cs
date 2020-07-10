@@ -3,7 +3,7 @@
     /// <summary>
     /// The different types of messages for GGPO.
     /// </summary>
-    public enum MessageType : int
+    public enum MessageType : byte
     {
         Invalid = 0,
         SyncRequest = 1,

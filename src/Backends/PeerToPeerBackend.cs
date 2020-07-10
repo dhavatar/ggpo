@@ -1,5 +1,9 @@
 ﻿using GGPOSharp.Interfaces;
 using GGPOSharp.Network;
+using GGPOSharp.Network.Events;
+using System;
+using System.Diagnostics;
+using System.Net;
 using System.Net.Sockets;
 
 namespace GGPOSharp.Backends
@@ -92,6 +96,72 @@ namespace GGPOSharp.Backends
                         endpoints[i].SendInput(ref input);
                     }
                 }
+            }
+
+            return GGPOErrorCode.OK;
+        }
+
+        public GGPOErrorCode DoPoll(int timeout)
+        {
+            if (sync.InRollback)
+            {
+                return GGPOErrorCode.OK;
+            }
+
+            PollUdpProtocolEvents();
+
+            if (isSynchronizing)
+            {
+                return GGPOErrorCode.OK;
+            }
+
+            sync.CheckSimulation(timeout);
+
+            // notify all of our endpoints of their local frame number for their
+            // next connection quality report
+            for (int i = 0; i < numPlayers; i++)
+            {
+                endpoints[i].SetLocalFrameNumber(sync.FrameCount);
+            }
+
+            int lastConfirmedFrame;
+            if (numPlayers <= 2)
+            {
+                lastConfirmedFrame = Poll2Players(sync.FrameCount);
+            }
+            else
+            {
+                lastConfirmedFrame = PollNPlayers(sync.FrameCount);
+            }
+
+            Log($"last confirmed frame in p2p backend is {lastConfirmedFrame}.");
+
+            if (lastConfirmedFrame >= 0)
+            {
+                Debug.Assert(lastConfirmedFrame != int.MaxValue);
+                if (numSpectators > 0)
+                {
+                    while (nextSpectatorFrame <= lastConfirmedFrame)
+                    {
+                        Log($"pushing frame {nextSpectatorFrame} to spectators.");
+
+                        var input = new GameInput
+                        {
+                            frame = nextSpectatorFrame,
+                            size = (uint)(inputSize * numPlayers),
+                        };
+                        sync.GetConfirmedInputs(input.bits, nextSpectatorFrame);
+
+                        for (int i = 0; i < numSpectators; i++)
+                        {
+                            spectators[i].SendInput(ref input);
+                        }
+                        nextSpectatorFrame++;
+                    }
+                }
+
+                Log($"setting confirmed frame in sync to {lastConfirmedFrame}.");
+                sync.SetLastConfirmedFrame(lastConfirmedFrame);
             }
 
             return GGPOErrorCode.OK;
@@ -260,6 +330,183 @@ namespace GGPOSharp.Backends
             spectators[queue].Synchronize();
 
             return GGPOErrorCode.OK;
+        }
+
+        protected int Poll2Players(int currentFrame)
+        {
+            // discard confirmed frames as appropriate
+            int totalMinConfirmed = int.MaxValue;
+
+            for (int i = 0; i < numPlayers; i++)
+            {
+                var queueConnected = true;
+                if (endpoints[i].IsRunning)
+                {
+                    queueConnected = endpoints[i].GetPeerConnectStatus(i, out int frame);
+                }
+
+                if (!localConnectStatus[i].Disconnected)
+                {
+                    totalMinConfirmed = Math.Min(localConnectStatus[i].LastFrame, totalMinConfirmed);
+                }
+
+                Log($"  local endp: connected = {!localConnectStatus[i].Disconnected}, last_received = {localConnectStatus[i].LastFrame}, total_min_confirmed = {totalMinConfirmed}.");
+                if (!queueConnected && !localConnectStatus[i].Disconnected)
+                {
+                    Log($"disconnecting i {i} by remote request.");
+                    DisconnectPlayerQueue(i, totalMinConfirmed);
+                }
+
+                Log($"  total_min_confirmed = {totalMinConfirmed}.");
+            }
+
+            return totalMinConfirmed;
+        }
+
+        protected int PollNPlayers(int currentFrame)
+        {
+            // discard confirmed frames as appropriate
+            int totalMinConfirmed = int.MaxValue;
+
+            for (int queue = 0; queue < numPlayers; queue++)
+            {
+                var queueConnected = true;
+                var queueMinConfirmed = int.MaxValue;
+                Log($"considering queue {queue}.");
+                
+                for (int i = 0; i < numPlayers; i++)
+                {
+                    // we're going to do a lot of logic here in consideration of endpoint i.
+                    // keep accumulating the minimum confirmed point for all n*n packets and
+                    // throw away the rest.
+                    if (endpoints[i].IsRunning)
+                    {
+                        bool connected = endpoints[i].GetPeerConnectStatus(queue, out int lastReceived);
+
+                        queueConnected = queueConnected && connected;
+                        queueMinConfirmed = Math.Min(lastReceived, queueMinConfirmed);
+                        Log($"  endpoint {i}: connected = {connected}, last_received = {lastReceived}, queue_min_confirmed = {queueMinConfirmed}.");
+                    }
+                    else
+                    {
+                        Log($"  endpoint {i}: ignoring... not running.");
+                    }
+                }
+
+                // merge in our local status only if we're still connected!
+                if (!localConnectStatus[queue].Disconnected)
+                {
+                    queueMinConfirmed = Math.Min(localConnectStatus[queue].LastFrame, queueMinConfirmed);
+                }
+                Log($"  local endp: connected = {!localConnectStatus[queue].Disconnected}, last_received = {localConnectStatus[queue].LastFrame}, queue_min_confirmed = {queueMinConfirmed}.");
+
+                if (queueConnected)
+                {
+                    totalMinConfirmed = Math.Min(queueMinConfirmed, totalMinConfirmed);
+                }
+                else
+                {
+                    // check to see if this disconnect notification is further back than we've been before. If
+                    // so, we need to re-adjust. This can happen when we detect our own disconnect at frame n
+                    // and later receive a disconnect notification for frame n-1.
+                    if (!localConnectStatus[queue].Disconnected || localConnectStatus[queue].LastFrame > queueMinConfirmed)
+                    {
+                        Log($"disconnecting queue {queue} by remote request.");
+                        DisconnectPlayerQueue(queue, queueMinConfirmed);
+                    }
+                }
+                Log($"  total_min_confirmed = {totalMinConfirmed}.");
+            }
+
+            return totalMinConfirmed;
+        }
+
+        protected void PollUdpProtocolEvents()
+        {
+            for (int i = 0; i < numPlayers; i++)
+            {
+                while (endpoints[i].GetEvent(out UdpProtocolEvent evt))
+                {
+                    OnUdpProtocolPeerEvent(evt, i);
+                }
+            }
+
+            for (int i = 0; i < numSpectators; i++)
+            {
+                while (spectators[i].GetEvent(out UdpProtocolEvent evt))
+                {
+                    OnUdpProtocolSpectatorEvent(evt, i);
+                }
+            }
+        }
+
+        protected void OnUdpProtocolPeerEvent(UdpProtocolEvent evt, int queue)
+        {
+            OnUdpProtocolEvent(evt, QueueToPlayerHandle(queue));
+
+            switch (evt.EventType)
+            {
+                case UdpProtocolEvent.Type.Input:
+                    var inputEvt = evt as InputEvent;
+                    if (!localConnectStatus[queue].Disconnected)
+                    {
+                        int currentRemoteFrame = localConnectStatus[queue].LastFrame;
+                        int newRemoteFrame = inputEvt.Input.frame;
+                        Debug.Assert(currentRemoteFrame == -1 || newRemoteFrame == (currentRemoteFrame + 1));
+
+                        GameInput input = inputEvt.Input;
+                        sync.AddRemoteInput(queue, ref input);
+
+                        // Notify the other endpoints which frame we received from a peer
+                        Log($"setting remote connect status for queue {queue} to {input.frame}");
+                        localConnectStatus[queue].LastFrame = input.frame;
+                    }
+                    break;
+
+                case UdpProtocolEvent.Type.Disconnected:
+                    DisconnectPlayer(QueueToPlayerHandle(queue));
+                    break;
+            }
+        }
+
+        protected void OnUdpProtocolSpectatorEvent(UdpProtocolEvent evt, int queue)
+        {
+            int handle = QueueToSpectatorHandle(queue);
+            OnUdpProtocolPeerEvent(evt, handle);
+
+            if (evt.EventType == UdpProtocolEvent.Type.Disconnected)
+            {
+                spectators[queue].Disconnect();
+                callbacks.OnDisconnected(handle);
+            }
+        }
+
+        protected void OnUdpProtocolEvent(UdpProtocolEvent evt, int handle)
+        {
+            switch (evt.EventType)
+            {
+                case UdpProtocolEvent.Type.Connected:
+                    callbacks.OnConnected(handle);
+                    break;
+
+                case UdpProtocolEvent.Type.Synchronizing:
+                    var syncEvent = evt as SynchronizingEvent;
+                    callbacks.OnSynchronizing(handle, syncEvent.Count, syncEvent.Total);
+                    break;
+
+                case UdpProtocolEvent.Type.Synchronized:
+                    callbacks.OnSyncrhonized(handle);
+                    break;
+
+                case UdpProtocolEvent.Type.NetworkInterrupted:
+                    var netEvent = evt as NetworkInterruptedEvent;
+                    callbacks.OnConnectionInterrupted(handle, netEvent.DisconnectTimeout);
+                    break;
+
+                case UdpProtocolEvent.Type.NetworkResumed:
+                    callbacks.OnConnectionResumed(handle);
+                    break;
+            }
         }
 
         protected void DisconnectPlayerQueue(int queue, int syncTo)

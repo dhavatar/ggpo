@@ -381,7 +381,7 @@ namespace VectorWar
             throw new NotImplementedException();
         }
 
-        public void OnMsg(IAsyncResult res)
+        public void OnMessage(IAsyncResult res)
         {
             throw new NotImplementedException();
         }

@@ -72,12 +72,6 @@ namespace GGPOSharp.Interfaces
         void OnDisconnected(int playerId);
 
         /// <summary>
-        /// Callback for the network protocol when a new message has arrived.
-        /// </summary>
-        /// <param name="res"></param>
-        void OnMsg(IAsyncResult res);
-
-        /// <summary>
         /// Callback when the session is now running.
         /// </summary>
         void OnRunning();

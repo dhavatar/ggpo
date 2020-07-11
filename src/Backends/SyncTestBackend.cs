@@ -24,7 +24,7 @@ namespace GGPOSharp.Backends
         protected bool isRunning = false;
         protected bool isRollingBack = false;
 
-        private RingBuffer<SavedInfo> savedFrames;
+        private RingBuffer<SavedInfo> savedFrames = new RingBuffer<SavedInfo>(32);
 
         public SyncTestSession(IGGPOSessionCallbacks callbacks, ILog logger, int numPlayers)
         {

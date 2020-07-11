@@ -2,6 +2,7 @@
 using GGPOSharp.Network.Events;
 using GGPOSharp.Network.Messages;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
@@ -12,18 +13,8 @@ namespace GGPOSharp.Network
     public class UdpProtocol
     {
         // Size of IP + UDP headers
-        const int UdpHeaderSize = 28;
-
-        public struct Stats
-        {
-            public int ping;
-            public int remoteFrameAdvantage;
-            public int localFrameAdvantage;
-            public int sendQueueLen;
-            public int bytesSent;
-            public int packetsSent;
-            public float kbpsSent;
-        }
+        public const int UdpHeaderSize = 28;
+        private const int MaxSequenceDistance = 1 << 15;
 
         protected struct SyncState
         {
@@ -62,13 +53,13 @@ namespace GGPOSharp.Network
 
         // Network transmission information
         UdpClient udpClient;
-        IPAddress peerAddress;
+        IPEndPoint udpEndpoint;
         ushort magicNumber;
         int queue = -1;
         ushort remoteMagicNumber;
         bool connected = false;
-        int sendLatency;
-        int oopPercent;
+        int sendLatency = 0;
+        int oopPercent = 0;
         QueueEntry ooPacket;
         RingBuffer<QueueEntry> sendQueue = new RingBuffer<QueueEntry>(64);
 
@@ -105,7 +96,7 @@ namespace GGPOSharp.Network
         ushort nextReceiveSequence;
 
         // Rift synchronization
-        TimeSync timeSync;
+        TimeSync timeSync = new TimeSync();
 
         // Event queue
         RingBuffer<UdpProtocolEvent> eventQueue = new RingBuffer<UdpProtocolEvent>(64);
@@ -113,17 +104,40 @@ namespace GGPOSharp.Network
         ILog logger;
         Random random = new Random();
 
-        public UdpProtocol(int queue, string ipString, int port, NetworkConnectStatus[] status, ILog logger)
+        private Dictionary<MessageType, Func<NetworkMessage, bool>> dispatchTable;
+        
+        public UdpProtocol(ILog logger)
+        {
+            this.logger = logger;
+
+            dispatchTable = new Dictionary<MessageType, Func<NetworkMessage, bool>>
+            {
+                { MessageType.Invalid, (msg) => OnInvalid(msg) },
+                { MessageType.SyncRequest, (msg) => OnSyncRequest(msg) },
+                { MessageType.SyncReply, (msg) => OnSyncReply(msg) },
+                { MessageType.Input, (msg) => OnInput(msg) },
+                { MessageType.QualityReport, (msg) => OnQualityReport(msg) },
+                { MessageType.QualityReply, (msg) => OnQualityReply(msg) },
+                { MessageType.KeepAlive, (msg) => OnKeepAlive(msg) },
+                { MessageType.InputAck, (msg) => OnInputAck(msg) },
+            };
+
+            // _send_latency = Platform::GetConfigInt("ggpo.network.delay");
+            // _oop_percent = Platform::GetConfigInt("ggpo.oop.percent");
+        }
+
+        public UdpProtocol(UdpClient udpClient, int queue, string ipString, int port, NetworkConnectStatus[] status, ILog logger)
+            : this(logger)
         {
             peerConnectStatus = new NetworkConnectStatus[Constants.MaxPlayers];
             localConnectStatus = status;
-            this.logger = logger;
 
-            udpClient = new UdpClient();
+            this.udpClient = udpClient;
             IPAddress ipAddress = IPAddress.Parse(ipString);
+            udpEndpoint = new IPEndPoint(ipAddress, port);
             try
             {
-                udpClient.Connect(ipAddress, port);
+                udpClient.Connect(udpEndpoint);
             }
             catch (Exception e)
             {
@@ -169,9 +183,55 @@ namespace GGPOSharp.Network
             return !peerConnectStatus[id].Disconnected;
         }
 
+        public bool HandlesMessage(IPEndPoint endpoint, NetworkMessage msg)
+        {
+            return udpEndpoint.Address.Equals(endpoint.Address) &&
+                udpEndpoint.Port.Equals(endpoint.Port);
+        }
+
         public void OnMessage(NetworkMessage msg)
         {
-            // TODO
+            bool handled = false;
+
+            // filter out messages that don't match what we expect
+            if (msg.Type != MessageType.SyncRequest &&
+                msg.Type != MessageType.SyncReply)
+            {
+                if (msg.Magic != remoteMagicNumber)
+                {
+                    LogMsg("recv rejcting", msg);
+                    return;
+                }
+
+                // filter out out-of-order packets
+                int skipped = msg.SequenceNumber - nextReceiveSequence;
+                if (skipped > MaxSequenceDistance)
+                {
+                    Log($"dropping out of order packet(seq: {msg.SequenceNumber}, last seq: {nextReceiveSequence})");
+                    return;
+                }
+            }
+
+            nextReceiveSequence = (ushort)msg.SequenceNumber;
+            LogMsg("recv", msg);
+            if ((int)msg.Type >= 8)
+            {
+                OnInvalid(msg);
+            }
+            else
+            {
+                handled = dispatchTable[msg.Type].Invoke(msg);
+            }
+
+            if (handled)
+            {
+                lastReceiveTime = Utility.GetCurrentTime();
+                if (disconnectNotifySent && currentState == State.Running)
+                {
+                    QueueEvent(new UdpProtocolEvent(UdpProtocolEvent.Type.NetworkResumed));
+                    disconnectNotifySent = false;
+                }
+            }
         }
 
         public void Update()
@@ -419,7 +479,7 @@ namespace GGPOSharp.Network
             sendQueue.Push(new QueueEntry
             {
                 queueTime = Utility.GetCurrentTime(),
-                destAddress = peerAddress,
+                destAddress = udpEndpoint.Address,
                 message = msg,
             });
 
@@ -509,6 +569,11 @@ namespace GGPOSharp.Network
                 sendQueue.Front().message = null;
                 sendQueue.Pop();
             }
+        }
+
+        protected void Log(string msg)
+        {
+            logger.Log(msg);
         }
 
         protected void LogMsg(string prefix, NetworkMessage msg)

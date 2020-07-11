@@ -47,8 +47,37 @@ namespace GGPOSharp.Backends
             });
 
             // Initialize the UDP port
-            udp = new UdpClient(localPort);
-            udp.BeginReceive(new System.AsyncCallback(callbacks.OnMsg), null);
+            var udpEndpoint = new IPEndPoint(IPAddress.Any, localPort);
+            udp = new UdpClient(udpEndpoint);
+            udp.BeginReceive(new System.AsyncCallback(OnMessage), udpEndpoint);
+        }
+
+        public void OnMessage(IAsyncResult res)
+        {
+            var endpoint = (IPEndPoint)res.AsyncState;
+
+            byte[] receiveBytes = udp.EndReceive(res, ref endpoint);
+            udp.BeginReceive(new System.AsyncCallback(OnMessage), endpoint);
+
+            var msg = Utility.Deserialize<NetworkMessage>(receiveBytes);
+
+            for (int i = 0; i < numPlayers; i++)
+            {
+                if (endpoints[i].HandlesMessage(endpoint, msg))
+                {
+                    endpoints[i].OnMessage(msg);
+                    return;
+                }
+            }
+
+            for (int i = 0; i < numSpectators; i++)
+            {
+                if (spectators[i].HandlesMessage(endpoint, msg))
+                {
+                    spectators[i].OnMessage(msg);
+                    return;
+                }
+            }
         }
 
         public override GGPOErrorCode AddLocalInput(int playerHandle, byte[] values)
@@ -304,7 +333,7 @@ namespace GGPOSharp.Backends
         {
             isSynchronizing = true;
 
-            endpoints[queue] = new UdpProtocol(queue, ip, port, localConnectStatus, logger);
+            endpoints[queue] = new UdpProtocol(udp, queue, ip, port, localConnectStatus, logger);
             endpoints[queue].DisconnectTimeout = disconnectTimeout;
             endpoints[queue].DisconnectNotifyStart = disconnectNotifyStart;
             endpoints[queue].Synchronize();
@@ -324,7 +353,7 @@ namespace GGPOSharp.Backends
             }
             int queue = numSpectators++;
 
-            spectators[queue] = new UdpProtocol(queue + 1000, ip, port, localConnectStatus, logger);
+            spectators[queue] = new UdpProtocol(udp, queue + 1000, ip, port, localConnectStatus, logger);
             spectators[queue].DisconnectTimeout = disconnectTimeout;
             spectators[queue].DisconnectNotifyStart = disconnectNotifyStart;
             spectators[queue].Synchronize();

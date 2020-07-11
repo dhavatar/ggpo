@@ -26,9 +26,9 @@ namespace GGPOSharp
         /// <returns>Size of the message in bytes.</returns>
         public static long GetMessageSize(NetworkMessage msg)
         {
-            var bf = new BinaryFormatter();
             using (var ms = new MemoryStream())
             {
+                var bf = new BinaryFormatter();
                 bf.Serialize(ms, msg);
                 return ms.Length;
             }
@@ -41,11 +41,26 @@ namespace GGPOSharp
         /// <returns>A byte array representation of the object.</returns>
         public static byte[] GetByteArray(object obj)
         {
-            var bf = new BinaryFormatter();
             using (var ms = new MemoryStream())
             {
+                var bf = new BinaryFormatter();
                 bf.Serialize(ms, obj);
                 return ms.ToArray();
+            }
+        }
+
+        /// <summary>
+        /// Deserializes a byte array into the requested class.
+        /// </summary>
+        /// <typeparam name="T">Class to convert the byte array into.</typeparam>
+        /// <param name="data">Byte array of the class information.</param>
+        /// <returns>Class from the converted byte array.</returns>
+        public static T Deserialize<T>(byte[] data)
+        {
+            using (MemoryStream ms = new MemoryStream(data))
+            {
+                var bf = new BinaryFormatter();
+                return (T)bf.Deserialize(ms);
             }
         }
 

@@ -33,7 +33,9 @@
             // 
             // lblStatus
             // 
-            this.lblStatus.Location = new System.Drawing.Point(0, 400);
+            this.lblStatus.BackColor = System.Drawing.Color.Transparent;
+            this.lblStatus.ForeColor = System.Drawing.SystemColors.ButtonHighlight;
+            this.lblStatus.Location = new System.Drawing.Point(2, 358);
             this.lblStatus.Name = "lblStatus";
             this.lblStatus.Size = new System.Drawing.Size(620, 13);
             this.lblStatus.TabIndex = 0;

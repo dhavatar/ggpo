@@ -18,7 +18,7 @@ namespace VectorWar
             Application.SetCompatibleTextRenderingDefault(false);
 
             var app = new VectorWar();
-            int offset = 1;
+            int offset = 0;
             int localPlayer = 0;
 
             // Window offsets for the different players
@@ -49,7 +49,7 @@ namespace VectorWar
                 string[] hostSplit = GetNetworkInfo(args[offset + 1]);
                 var hostIp = hostSplit[0];
                 var hostPort = int.Parse(hostSplit[1]);
-                // VectorWar_InitSpectator(hwnd, local_port, num_players, host_ip, host_port);
+                app.InitSpectator(localPort, numPlayers, hostIp, hostPort);
             }
             else
             {
@@ -93,7 +93,7 @@ namespace VectorWar
                     app.Location = windowOffsets[localPlayer];
                 }
 
-                // VectorWar_Init(hwnd, local_port, num_players, players, num_spectators);
+                app.Init(localPort, numPlayers, players, numSpectators);
             }
 
             Application.Run(app);

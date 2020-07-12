@@ -46,7 +46,11 @@ namespace VectorWar
             InitializeComponent();
             monitor.Hide();
 
-            renderer = new GdiRenderer(Bounds);
+            SetStyle(ControlStyles.UserPaint, true);
+            SetStyle(ControlStyles.AllPaintingInWmPaint, true);
+            SetStyle(ControlStyles.DoubleBuffer, true);
+
+            renderer = new GdiRenderer(new Rectangle(0, 0, ClientSize.Width, ClientSize.Height));
 
             Application.Idle += HandleApplicationIdle;
             Paint += VectorWar_Paint;
@@ -65,10 +69,9 @@ namespace VectorWar
         public void Init(int localPort, int numPlayers, GGPOPlayer[] players, int numSpectators)
         {
             // Initialize the game state
-            gs = new GameState(Bounds, numPlayers);
-            ngs.NumPlayers = numPlayers;
+            InitializeGameState(numPlayers);
 
-            ggpo = new PeerToPeerBackend(this, new ConsoleLogger(), localPort, numPlayers, 32);
+            ggpo = new PeerToPeerBackend(this, new ConsoleLogger(), localPort, numPlayers, 4);
 
             // automatically disconnect clients after 3000 ms and start our count-down timer
             // for disconnects after 1000 ms.   To completely disable disconnects, simply use
@@ -107,12 +110,17 @@ namespace VectorWar
         public void InitSpectator(int localPort, int numPlayers, string hostIp, int hostPort)
         {
             // Initialize the game state
-            gs = new GameState(Bounds, numPlayers);
-            ngs.NumPlayers = numPlayers;
+            InitializeGameState(numPlayers);
 
-            // ggpo = new SpectatorBackend(this, new ConsoleLogger(), localPort, numPlayers, 32);
+            ggpo = new SpectatorBackend(this, new ConsoleLogger(), localPort, numPlayers, 4, hostIp, hostPort);
 
             lblStatus.Text = "Starting new spectator session";
+        }
+
+        private void InitializeGameState(int numPlayers)
+        {   
+            gs = new GameState(new Rectangle(0, 0, ClientSize.Width, ClientSize.Height), numPlayers);
+            ngs.NumPlayers = numPlayers;
         }
 
         /// <summary>
@@ -124,11 +132,12 @@ namespace VectorWar
         {
             while (IsApplicationIdle())
             {
+                ggpo.Idle(0);
                 now = Utility.GetCurrentTime();
                 if (now >= next)
                 {
-                    ggpo.Idle(0);
                     GameUpdate();
+                    Refresh();
                     next = (long)(now + (1000 / 60f));
                 }
             }
@@ -342,8 +351,8 @@ namespace VectorWar
                 for (int i = 0; i < gameState.NumberOfShips; i++)
                 {
                     Ship ship = gameState.Ships[i];
-                    file.WriteLine($"  ship {i} position:  {ship.position:F.4}");
-                    file.WriteLine($"  ship {i} velocity:  {ship.velocity:F.4}");
+                    file.WriteLine($"  ship {i} position:  {ship.position:F4}");
+                    file.WriteLine($"  ship {i} velocity:  {ship.velocity:F4}");
                     file.WriteLine($"  ship {i} radius:    {ship.radius}.");
                     file.WriteLine($"  ship {i} heading:   {ship.heading}.");
                     file.WriteLine($"  ship {i} health:    {ship.health}.");
@@ -353,7 +362,7 @@ namespace VectorWar
 
                     for (int j = 0; j < Constants.MaxBullets; j++)
                     {
-                        file.WriteLine($"  ship {i} bullet {j}: {ship.bullets[j].position:F.2} -> {ship.bullets[j].velocity:F.2}");
+                        file.WriteLine($"  ship {i} bullet {j}: {ship.bullets[j].position:F2} -> {ship.bullets[j].velocity:F2}");
                     }
                 }
             }
@@ -363,47 +372,44 @@ namespace VectorWar
 
         public void OnConnected(int playerId)
         {
-            throw new NotImplementedException();
+            ngs.SetConnectState(playerId, PlayerConnectState.Synchronizing);
         }
 
         public void OnConnectionInterrupted(int playerId, int disconnectTimeout)
         {
-            throw new NotImplementedException();
+            ngs.SetDisconnectTimeout(playerId, Utility.GetCurrentTime(), disconnectTimeout);
         }
 
         public void OnConnectionResumed(int playerId)
         {
-            throw new NotImplementedException();
+            ngs.SetConnectState(playerId, PlayerConnectState.Running);
         }
 
         public void OnDisconnected(int playerId)
         {
-            throw new NotImplementedException();
-        }
-
-        public void OnMessage(IAsyncResult res)
-        {
-            throw new NotImplementedException();
+            ngs.SetConnectState(playerId, PlayerConnectState.Disconnected);
         }
 
         public void OnRunning()
         {
-            throw new NotImplementedException();
+            ngs.SetConnectState(PlayerConnectState.Running);
+            lblStatus.Text = string.Empty;
         }
 
         public void OnSynchronizing(int playerId, int count, int total)
         {
-            throw new NotImplementedException();
+            int progress = (int)(100 * count / (float)total);
+            ngs.UpdateConnectProgress(playerId, progress);
         }
 
         public void OnSyncrhonized(int playerId)
         {
-            throw new NotImplementedException();
+            ngs.UpdateConnectProgress(playerId, 100);
         }
 
         public void OnTimeSync(int framesAhead)
         {
-            throw new NotImplementedException();
+            // Thread.Sleep(1000 * framesAhead / 60);
         }
 
         #endregion

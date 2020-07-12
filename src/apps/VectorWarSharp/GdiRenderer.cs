@@ -14,7 +14,9 @@ namespace VectorWar
         const int ProgressBarWidth = 100;
         const int ProgressBarTopOffset = 22;
         const int ProgressBarHeight = 8;
-        const int ProgressTextOffset = (ProgressBarTopOffset - ProgressBarHeight + 4);
+        const int ProgressTextOffset = ProgressBarTopOffset + ProgressBarHeight + 4;
+        const int ProgressTextWidth = 100;
+        const int TextBoxHeight = 25;
 
         TextFormatFlags[] alignments = new TextFormatFlags[]
         {
@@ -36,9 +38,7 @@ namespace VectorWar
         SolidBrush bulletBrush = new SolidBrush(Color.FromArgb(255, 192, 0));
         SolidBrush whiteBrush = new SolidBrush(Color.White);
         SolidBrush blackBrush = new SolidBrush(Color.Black);
-        SolidBrush periodicTextBrush = new SolidBrush(Color.LightGray);
-        SolidBrush nowTextBrush = new SolidBrush(Color.Gray);
-        Font font = new Font("Tahoma", 12);
+        Font font = new Font("Tahoma", 9);
         Pen whitePen = new Pen(new SolidBrush(Color.White));
         Pen grayPen = new Pen(new SolidBrush(Color.Gray));
 
@@ -67,16 +67,19 @@ namespace VectorWar
                 DrawConnectState(g, i, gs.Ships[i], ngs.players[i]);
             }
 
-            RenderChecksum(g, 40, periodicTextBrush, ngs.ChecksumPeriodic);
-            RenderChecksum(g, 56, nowTextBrush, ngs.ChecksumNow);
+            RenderChecksum(g, 40, Color.LightGray, ngs.ChecksumPeriodic);
+            RenderChecksum(g, 56, Color.Gray, ngs.ChecksumNow);
         }
 
-        protected void RenderChecksum(Graphics g, int y, Brush brush, NonGameState.ChecksumInfo info)
+        protected void RenderChecksum(Graphics g, int y, Color color, NonGameState.ChecksumInfo info)
         {
-            g.DrawString($"Frame: {info.frameNumber:D04}  Checksum: {info.checksum:X08}",
-                font,
-                brush,
-                new Point((bounds.Left + bounds.Right) / 2, bounds.Top + y));
+            TextRenderer.DrawText(
+                    g,
+                    $"Frame: {info.frameNumber:D04}  Checksum: {info.checksum:X08}",
+                    font,
+                    new Rectangle(0, bounds.Top + y, bounds.Width, TextBoxHeight),
+                    color,
+                    TextFormatFlags.Top | TextFormatFlags.HorizontalCenter);
         }
 
         protected void DrawShip(Graphics g, int which, GameState gs)
@@ -169,7 +172,10 @@ namespace VectorWar
                     g,
                     status,
                     font,
-                    new Point((int)ship.position.x, (int)ship.position.y + ProgressTextOffset),
+                    new Rectangle((int)(ship.position.x - ProgressTextWidth / 2),
+                        (int)(ship.position.y + ProgressTextOffset),
+                        ProgressTextWidth,
+                        TextBoxHeight),
                     shipColors[which],
                     TextFormatFlags.Top | TextFormatFlags.HorizontalCenter);
             }

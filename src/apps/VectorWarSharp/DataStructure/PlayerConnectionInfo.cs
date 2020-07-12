@@ -9,6 +9,6 @@ namespace VectorWar.DataStructure
         public PlayerConnectState state;
         public int connectProgress;
         public int disconnectTimeout;
-        public int disconnectStart;
+        public long disconnectStart;
     }
 }

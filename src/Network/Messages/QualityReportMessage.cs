@@ -1,5 +1,4 @@
-﻿using GGPOSharp.Interfaces;
-using System;
+﻿using System;
 
 namespace GGPOSharp.Network.Messages
 {

@@ -211,6 +211,12 @@ namespace GGPOSharp
                 return;
             }
 
+            if (savedState.frames == null)
+            {
+                Log("saveState no longer has any frames.");
+                return;
+            }
+
             // Move the head pointer back and load it up
             savedState.head = FindSavedFrameIndex(frame);
             ref SavedFrame state = ref savedState.frames[savedState.head];
@@ -240,6 +246,11 @@ namespace GGPOSharp
 
         protected int FindSavedFrameIndex(int frame)
         {
+            if (savedState.frames == null)
+            {
+                return 0;
+            }    
+
             int i, count = savedState.frames.Length;
             for (i = 0; i < count; i++)
             {

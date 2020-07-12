@@ -107,8 +107,8 @@ namespace VectorWar
             if (now > lastTextUpdateTime + 500)
             {
                 lblNetworkLag.Text = $"{stats.Ping} ms";
-                lblFrameLag.Text = $"{stats.Ping * 60 / 1000f:F.1}";
-                lblBandwidth.Text = $"{stats.KbpsSent / 8f:F.2} kilobytes/sec";
+                lblFrameLag.Text = $"{stats.Ping * 60 / 1000f:F1}";
+                lblBandwidth.Text = $"{stats.KbpsSent / 8f:F2} kilobytes/sec";
                 lblLocalAhead.Text = $"{stats.LocalFramesBehind} frames";
                 lblRemoteAhead.Text = $"{stats.RemoteFramesBehind} frames";
 

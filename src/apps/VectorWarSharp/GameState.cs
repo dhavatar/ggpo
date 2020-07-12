@@ -39,6 +39,7 @@ namespace VectorWar
                 double cost = Math.Cos(theta);
                 double sint = Math.Sin(theta);
 
+                Ships[i] = new Ship();
                 Ships[i].position.x = (width / 2) + r * cost;
                 Ships[i].position.y = (height / 2) + r * sint;
                 Ships[i].heading = (heading + 180) % 360;

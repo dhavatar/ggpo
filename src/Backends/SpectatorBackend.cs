@@ -20,6 +20,8 @@ namespace GGPOSharp.Backends
         protected int nextInputToSend = 0;
         protected GameInput[] inputs = new GameInput[SpectatorFrameBufferSize];
 
+        private Poll poll = new Poll();
+
         public SpectatorBackend(IGGPOSessionCallbacks callbacks,
             ILog logger,
             int localPort,
@@ -39,7 +41,7 @@ namespace GGPOSharp.Backends
             udp.BeginReceive(new System.AsyncCallback(OnMessage), null);
 
             // Initialize the host endpoint
-            host = new UdpProtocol(udp, 0, hostIp, hostPort, null, logger);
+            host = new UdpProtocol(udp, poll, 0, hostIp, hostPort, null, logger);
         }
 
         public void OnMessage(IAsyncResult res)
@@ -59,6 +61,7 @@ namespace GGPOSharp.Backends
 
         public GGPOErrorCode DoPoll(int timeout)
         {
+            poll.Pump(0);
             PollUdpProtocolEvents();
             return GGPOErrorCode.OK;
         }

@@ -10,6 +10,7 @@ namespace GGPOSharp.Backends
 {
     public class PeerToPeerBackend : GGPOSession
     {
+        public const int SIO_UDP_CONNRESET = -1744830452;
         public const int RecommendationInterval = 240;
         public const int DefaultDisconnectTimeout = 5000;
         public const int DefaultDisconnectNotifyStart = 750;
@@ -27,6 +28,8 @@ namespace GGPOSharp.Backends
         protected UdpProtocol[] spectators = new UdpProtocol[Constants.MaxSpectators];
         protected UdpClient udp;
 
+        private Poll poll = new Poll();
+
         public PeerToPeerBackend(IGGPOSessionCallbacks callbacks, ILog logger, int localPort, int numPlayers, int inputSize)
         {
             this.numPlayers = numPlayers;
@@ -34,8 +37,22 @@ namespace GGPOSharp.Backends
             this.callbacks = callbacks;
             this.logger = logger;
 
+            for (int i = 0; i < Constants.MaxPlayers; i++)
+            {
+                localConnectStatus[i] = new NetworkConnectStatus();
+            }
+
+            for (int i = 0; i < Constants.MaxSpectators; i++)
+            {
+                spectators[i] = new UdpProtocol(logger);
+            }
+
             isSynchronizing = true;
             endpoints = new UdpProtocol[numPlayers];
+            for (int i = 0; i < numPlayers; i++)
+            {
+                endpoints[i] = new UdpProtocol(logger);
+            }
 
             // Initialize the synchronziation layer
             sync = new Sync(new Sync.Config
@@ -49,6 +66,12 @@ namespace GGPOSharp.Backends
             // Initialize the UDP port
             var udpEndpoint = new IPEndPoint(IPAddress.Any, localPort);
             udp = new UdpClient(udpEndpoint);
+
+            udp.Client.IOControl(
+                (IOControlCode)SIO_UDP_CONNRESET,
+                new byte[] { 0, 0, 0, 0 },
+                null
+            );
             udp.BeginReceive(new System.AsyncCallback(OnMessage), udpEndpoint);
         }
 
@@ -130,13 +153,14 @@ namespace GGPOSharp.Backends
             return GGPOErrorCode.OK;
         }
 
-        public GGPOErrorCode DoPoll(int timeout)
+        public override GGPOErrorCode Idle(int timeout)
         {
             if (sync.InRollback)
             {
                 return GGPOErrorCode.OK;
             }
 
+            poll.Pump(0);
             PollUdpProtocolEvents();
 
             if (isSynchronizing)
@@ -333,7 +357,7 @@ namespace GGPOSharp.Backends
         {
             isSynchronizing = true;
 
-            endpoints[queue] = new UdpProtocol(udp, queue, ip, port, localConnectStatus, logger);
+            endpoints[queue] = new UdpProtocol(udp, poll, queue, ip, port, localConnectStatus, logger);
             endpoints[queue].DisconnectTimeout = disconnectTimeout;
             endpoints[queue].DisconnectNotifyStart = disconnectNotifyStart;
             endpoints[queue].Synchronize();
@@ -353,7 +377,7 @@ namespace GGPOSharp.Backends
             }
             int queue = numSpectators++;
 
-            spectators[queue] = new UdpProtocol(udp, queue + 1000, ip, port, localConnectStatus, logger);
+            spectators[queue] = new UdpProtocol(udp, poll, queue + 1000, ip, port, localConnectStatus, logger);
             spectators[queue].DisconnectTimeout = disconnectTimeout;
             spectators[queue].DisconnectNotifyStart = disconnectNotifyStart;
             spectators[queue].Synchronize();

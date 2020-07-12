@@ -34,7 +34,7 @@
             }
         }
 
-        public void SetDisconnectTimeout(int playerHandle, int when, int timeout)
+        public void SetDisconnectTimeout(int playerHandle, long when, int timeout)
         {
             for (int i = 0; i < NumPlayers; i++)
             {

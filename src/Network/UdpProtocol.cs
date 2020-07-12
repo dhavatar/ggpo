@@ -10,7 +10,7 @@ using System.Text;
 
 namespace GGPOSharp.Network
 {
-    public class UdpProtocol
+    public class UdpProtocol : IPollSink
     {
         // Size of IP + UDP headers
         public const int UdpHeaderSize = 28;
@@ -100,6 +100,7 @@ namespace GGPOSharp.Network
 
         // Event queue
         RingBuffer<UdpProtocolEvent> eventQueue = new RingBuffer<UdpProtocolEvent>(64);
+        private readonly object queueLock = new object();
 
         ILog logger;
         Random random = new Random();
@@ -126,7 +127,7 @@ namespace GGPOSharp.Network
             // _oop_percent = Platform::GetConfigInt("ggpo.oop.percent");
         }
 
-        public UdpProtocol(UdpClient udpClient, int queue, string ipString, int port, NetworkConnectStatus[] status, ILog logger)
+        public UdpProtocol(UdpClient udpClient, Poll poll, int queue, string ipString, int port, NetworkConnectStatus[] status, ILog logger)
             : this(logger)
         {
             peerConnectStatus = new NetworkConnectStatus[Constants.MaxPlayers];
@@ -149,6 +150,7 @@ namespace GGPOSharp.Network
             {
                 magicNumber = (ushort)random.Next();
             } while (magicNumber == 0);
+            poll.RegisterSink(this);
         }
 
         public void Disconnect()
@@ -185,6 +187,11 @@ namespace GGPOSharp.Network
 
         public bool HandlesMessage(IPEndPoint endpoint, NetworkMessage msg)
         {
+            if (udpClient == null)
+            {
+                return false;
+            }
+
             return udpEndpoint.Address.Equals(endpoint.Address) &&
                 udpEndpoint.Port.Equals(endpoint.Port);
         }
@@ -234,8 +241,13 @@ namespace GGPOSharp.Network
             }
         }
 
-        public void Update()
+        public bool OnLoopPoll()
         {
+            if (udpClient == null)
+            {
+                return true;
+            }
+
             long now = Utility.GetCurrentTime();
             int nextInterval;
 
@@ -254,14 +266,14 @@ namespace GGPOSharp.Network
                     break;
 
                 case State.Running:
-                    if (runningState.lastInputPacketReceiveTime > 0 || runningState.lastInputPacketReceiveTime + NetworkConstants.RunningRetryInterval < now)
+                    if (runningState.lastInputPacketReceiveTime == 0 || runningState.lastInputPacketReceiveTime + NetworkConstants.RunningRetryInterval < now)
                     {
                         logger.Log($"Haven't exchanged packets in a while (last received:{lastReceivedInput.frame}  last sent:{lastSentInput.frame}).  Resending.");
                         SendPendingOutput();
                         runningState.lastInputPacketReceiveTime = now;
                     }
 
-                    if (runningState.lastQualityReportTime > 0 || runningState.lastQualityReportTime + NetworkConstants.QualityReportInterval < now)
+                    if (runningState.lastQualityReportTime == 0 || runningState.lastQualityReportTime + NetworkConstants.QualityReportInterval < now)
                     {
                         var msg = new QualityReportMessage
                         {
@@ -272,7 +284,7 @@ namespace GGPOSharp.Network
                         runningState.lastQualityReportTime = now;
                     }
 
-                    if (runningState.lastNetworkStatsInterval > 0 || runningState.lastNetworkStatsInterval + NetworkConstants.NetworkStatsInterval < now)
+                    if (runningState.lastNetworkStatsInterval == 0 || runningState.lastNetworkStatsInterval + NetworkConstants.NetworkStatsInterval < now)
                     {
                         UpdateNetworkStats();
                         runningState.lastNetworkStatsInterval = now;
@@ -319,6 +331,8 @@ namespace GGPOSharp.Network
                     }
                     break;
             }
+
+            return true;
         }
 
         public void SetLocalFrameNumber(int localFrame)
@@ -439,14 +453,14 @@ namespace GGPOSharp.Network
             {
                 for (int i = 0; i < Constants.MaxPlayers; i++)
                 {
-                    msg.PeerConnectStatus[i].Copy(localConnectStatus[i]);
+                    msg.PeerConnectStatus[i]?.Copy(localConnectStatus[i]);
                 }
             }
             else
             {
                 for (int i = 0; i < Constants.MaxPlayers; i++)
                 {
-                    msg.PeerConnectStatus[i].Reset();
+                    msg.PeerConnectStatus[i]?.Reset();
                 }
             }
 
@@ -482,8 +496,6 @@ namespace GGPOSharp.Network
                 destAddress = udpEndpoint.Address,
                 message = msg,
             });
-
-            PumpSendQueue();
         }
 
         protected void UpdateNetworkStats()
@@ -503,10 +515,10 @@ namespace GGPOSharp.Network
             kbpsSent = (int)(bps / 1024);
 
             var builder = new StringBuilder("Network Stats -- ");
-            builder.Append($"Bandwidth: {kbpsSent:F.2} KBps");
-            builder.Append($"   Packets Sent: {packetsSent:D5} ({packetsSent * 1000 / (float)(now - statsStartTime):F.2} pps)");
-            builder.Append($"   KB Sent: {totalBytesSent / 1024f:F.2}");
-            builder.Append($"   UDP Overhead: {udpOverhead:F.2} %.");
+            builder.Append($"Bandwidth: {kbpsSent:F2} KBps");
+            builder.Append($"   Packets Sent: {packetsSent:D5} ({packetsSent * 1000 / (float)(now - statsStartTime):F2} pps)");
+            builder.Append($"   KB Sent: {totalBytesSent / 1024f:F2}");
+            builder.Append($"   UDP Overhead: {udpOverhead:F2} %.");
             logger.Log(builder.ToString());
         }
 
@@ -518,38 +530,41 @@ namespace GGPOSharp.Network
 
         protected void PumpSendQueue()
         {
-            while (!sendQueue.IsEmpty)
+            lock (queueLock)
             {
-                QueueEntry entry = sendQueue.Front();
-
-                if (sendLatency > 0)
+                while (!sendQueue.IsEmpty)
                 {
-                    // Should really come up with a gaussian distributation based on the configured
-                    // value, but this will do for now.
-                    int jitter = (sendLatency * 2 / 3) + ((random.Next() % sendLatency) / 3);
-                    if (Utility.GetCurrentTime() < sendQueue.Front().queueTime + jitter)
+                    QueueEntry entry = sendQueue.Front();
+
+                    if (sendLatency > 0)
                     {
-                        break;
+                        // Should really come up with a gaussian distribution based on the configured
+                        // value, but this will do for now.
+                        int jitter = (sendLatency * 2 / 3) + ((random.Next() % sendLatency) / 3);
+                        if (Utility.GetCurrentTime() < sendQueue.Front().queueTime + jitter)
+                        {
+                            break;
+                        }
                     }
-                }
 
-                if (oopPercent > 0 && ooPacket.message != null && random.Next() % 100 < oopPercent)
-                {
-                    int delay = random.Next() % (sendLatency * 10 + 1000);
-                    logger.Log($"creating rogue oop (seq: {entry.message.SequenceNumber}  delay: {delay})");
-                    ooPacket.queueTime = Utility.GetCurrentTime() + delay;
-                    ooPacket.message = entry.message;
-                    ooPacket.destAddress = entry.destAddress;
-                }
-                else
-                {
-                    var byteMsg = Utility.GetByteArray(entry.message);
-                    udpClient.Send(byteMsg, byteMsg.Length);
+                    if (oopPercent > 0 && ooPacket.message != null && random.Next() % 100 < oopPercent)
+                    {
+                        int delay = random.Next() % (sendLatency * 10 + 1000);
+                        logger.Log($"creating rogue oop (seq: {entry.message.SequenceNumber}  delay: {delay})");
+                        ooPacket.queueTime = Utility.GetCurrentTime() + delay;
+                        ooPacket.message = entry.message;
+                        ooPacket.destAddress = entry.destAddress;
+                    }
+                    else
+                    {
+                        var byteMsg = Utility.GetByteArray(entry.message);
+                        udpClient.Send(byteMsg, byteMsg.Length);
 
-                    entry.message = null;
-                }
+                        entry.message = null;
+                    }
 
-                sendQueue.Pop();
+                    sendQueue.Pop();
+                }
             }
 
             if (ooPacket.message != null && ooPacket.queueTime < Utility.GetCurrentTime())
@@ -635,7 +650,7 @@ namespace GGPOSharp.Network
             logger.Log($"Checking sync state ({syncState.roundTripsRemaining} round trips remaining).");
             if (--syncState.roundTripsRemaining == 0)
             {
-                logger.Log("Syncrhonized!");
+                Log("Syncrhonized!");
                 QueueEvent(new UdpProtocolEvent(UdpProtocolEvent.Type.Synchronized));
                 currentState = State.Running;
                 lastReceivedInput.frame = GameInput.NullFrame;
@@ -676,9 +691,12 @@ namespace GGPOSharp.Network
                 NetworkConnectStatus[] remoteStatus = inputMsg.PeerConnectStatus;
                 for (int i = 0; i < peerConnectStatus.Length; i++)
                 {
-                    Debug.Assert(remoteStatus[i].LastFrame >= peerConnectStatus[i].LastFrame);
-                    peerConnectStatus[i].Disconnected = peerConnectStatus[i].Disconnected || remoteStatus[i].Disconnected;
-                    peerConnectStatus[i].LastFrame = Math.Max(peerConnectStatus[i].LastFrame, remoteStatus[i].LastFrame);
+                    if (remoteStatus[i] != null && peerConnectStatus[i] != null)
+                    {
+                        Debug.Assert(remoteStatus[i].LastFrame >= peerConnectStatus[i].LastFrame);
+                        peerConnectStatus[i].Disconnected = peerConnectStatus[i].Disconnected || remoteStatus[i].Disconnected;
+                        peerConnectStatus[i].LastFrame = Math.Max(peerConnectStatus[i].LastFrame, remoteStatus[i].LastFrame);
+                    }
                 }
             }
 

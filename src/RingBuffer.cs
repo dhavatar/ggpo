@@ -39,17 +39,16 @@ namespace GGPOSharp
         public bool IsFull => Size == Capacity;
 
         protected readonly T[] data;
-        protected int head;
-        protected int tail;
+        protected int head = 0;
+        protected int tail = 0;
 
         /// <summary>
         /// Constructor for the ring buffer with the specified size.
         /// </summary>
-        /// <param name="size">Size of the ring buffer.</param>
-        public RingBuffer(int size)
+        /// <param name="capacity">Size of the ring buffer.</param>
+        public RingBuffer(int capacity)
         {
-            data = new T[size];
-            head = tail = 0;
+            data = new T[capacity];
         }
 
         /// <summary>

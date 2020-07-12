@@ -1,7 +1,9 @@
 ﻿using GGPOSharp;
+using System;
 
 namespace VectorWar.DataStructure
 {
+    [Serializable]
     struct PlayerConnectionInfo
     {
         public GGPOPlayerType type;

@@ -49,7 +49,7 @@ namespace GGPOSharp.Network
 
         public bool IsInitialized => udpClient != null;
         public bool IsRunning => currentState == State.Running;
-        public bool IsSynchronized => currentState == State.Synchronized;
+        public bool IsSynchronized => currentState == State.Synchronized || currentState == State.Running;
 
         // Network transmission information
         UdpClient udpClient;
@@ -83,9 +83,9 @@ namespace GGPOSharp.Network
 
         // Packet loss
         RingBuffer<GameInput> pendingOutput = new RingBuffer<GameInput>(64);
-        GameInput lastReceivedInput = new GameInput(-1, null, 1);
-        GameInput lastSentInput = new GameInput(-1, null, 1);
-        GameInput lastAckedInput = new GameInput(-1, null, 1);
+        GameInput lastReceivedInput = new GameInput(GameInput.NullFrame, null, 1);
+        GameInput lastSentInput = new GameInput(GameInput.NullFrame, null, 1);
+        GameInput lastAckedInput = new GameInput(GameInput.NullFrame, null, 1);
         long lastSendTime;
         long lastReceiveTime;
         long shutdownTimeout;
@@ -131,6 +131,11 @@ namespace GGPOSharp.Network
             : this(logger)
         {
             peerConnectStatus = new NetworkConnectStatus[Constants.MaxPlayers];
+            for (int i = 0; i < peerConnectStatus.Length; i++)
+            {
+                peerConnectStatus[i] = new NetworkConnectStatus();
+            }
+
             localConnectStatus = status;
 
             this.udpClient = udpClient;
@@ -206,7 +211,7 @@ namespace GGPOSharp.Network
             {
                 if (msg.Magic != remoteMagicNumber)
                 {
-                    LogMsg("recv rejcting", msg);
+                    LogMsg("recv rejecting", msg);
                     return;
                 }
 
@@ -260,7 +265,7 @@ namespace GGPOSharp.Network
                         : NetworkConstants.SyncRetryInterval;
                     if (lastSendTime > 0 && lastSendTime + nextInterval < now)
                     {
-                        logger.Log($"No luck syncing after {nextInterval} ms... Re - queueing sync packet.");
+                        Log($"No luck syncing after {nextInterval} ms... Re - queueing sync packet.");
                         SendSyncRequest();
                     }
                     break;
@@ -268,7 +273,7 @@ namespace GGPOSharp.Network
                 case State.Running:
                     if (runningState.lastInputPacketReceiveTime == 0 || runningState.lastInputPacketReceiveTime + NetworkConstants.RunningRetryInterval < now)
                     {
-                        logger.Log($"Haven't exchanged packets in a while (last received:{lastReceivedInput.frame}  last sent:{lastSentInput.frame}).  Resending.");
+                        Log($"Haven't exchanged packets in a while (last received:{lastReceivedInput.frame}  last sent:{lastSentInput.frame}).  Resending.");
                         SendPendingOutput();
                         runningState.lastInputPacketReceiveTime = now;
                     }
@@ -292,7 +297,7 @@ namespace GGPOSharp.Network
 
                     if (lastSendTime > 0 && lastSendTime + NetworkConstants.KeepAliveInterval < now)
                     {
-                        logger.Log("Sending keep alive packet");
+                        Log("Sending keep alive packet");
                         SendMessage(new KeepAliveMessage());
                     }
 
@@ -301,7 +306,7 @@ namespace GGPOSharp.Network
                         !disconnectNotifySent &&
                         lastReceiveTime + DisconnectNotifyStart < now)
                     {
-                        logger.Log($"Endpoint has stopped receiving packets for {DisconnectNotifyStart} ms.  Sending notification.");
+                        Log($"Endpoint has stopped receiving packets for {DisconnectNotifyStart} ms.  Sending notification.");
 
                         var e = new NetworkInterruptedEvent
                         {
@@ -315,7 +320,7 @@ namespace GGPOSharp.Network
                         lastReceiveTime + DisconnectTimeout < now &&
                         !disconnectEventSent)
                     {
-                        logger.Log($"Endpoint has stopped receiving packets for {DisconnectTimeout} ms.  Disconnecting.");
+                        Log($"Endpoint has stopped receiving packets for {DisconnectTimeout} ms.  Disconnecting.");
 
                         QueueEvent(new UdpProtocolEvent(UdpProtocolEvent.Type.Disconnected));
                         disconnectEventSent = true;
@@ -325,7 +330,7 @@ namespace GGPOSharp.Network
                 case State.Disconnected:
                     if (shutdownTimeout < now)
                     {
-                        logger.Log("Shutting down udp connection.");
+                        Log("Shutting down udp connection.");
                         udpClient.Close();
                         shutdownTimeout = 0;
                     }
@@ -418,7 +423,7 @@ namespace GGPOSharp.Network
 
                         for (int i = 0; i < current.size * 8; i++)
                         {
-                            Debug.Assert(i < (i << Bitvector.NibbleSize));
+                            Debug.Assert(i < (1 << Bitvector.NibbleSize));
                             if (current[i] != last[i])
                             {
                                 Bitvector.SetBit(msg.Bits, ref offset);
@@ -490,12 +495,15 @@ namespace GGPOSharp.Network
             msg.Magic = magicNumber;
             msg.SequenceNumber = nextSendSequence++;
 
-            sendQueue.Push(new QueueEntry
+            lock (queueLock)
             {
-                queueTime = Utility.GetCurrentTime(),
-                destAddress = udpEndpoint.Address,
-                message = msg,
-            });
+                sendQueue.Push(new QueueEntry
+                {
+                    queueTime = Utility.GetCurrentTime(),
+                    destAddress = udpEndpoint.Address,
+                    message = msg,
+                });
+            }
         }
 
         protected void UpdateNetworkStats()
@@ -507,19 +515,20 @@ namespace GGPOSharp.Network
                 statsStartTime = now;
             }
 
-            long totalBytesSent = bytesSent + (UdpHeaderSize * packetsSent);
-            float seconds = (now - statsStartTime) / 1000f;
-            float bps = totalBytesSent / seconds;
+            long totalBytesSent = (long)(bytesSent + (UdpHeaderSize * packetsSent));
             float udpOverhead = 100 * (UdpHeaderSize * packetsSent) / (float)bytesSent;
+            float seconds = (now - statsStartTime) / 1000f;
+            float bps = seconds > 0 ? totalBytesSent / seconds : 0;
+            float pps = seconds > 0 ? packetsSent / seconds : 0;
 
             kbpsSent = (int)(bps / 1024);
 
             var builder = new StringBuilder("Network Stats -- ");
-            builder.Append($"Bandwidth: {kbpsSent:F2} KBps");
-            builder.Append($"   Packets Sent: {packetsSent:D5} ({packetsSent * 1000 / (float)(now - statsStartTime):F2} pps)");
+            builder.Append($"Bandwidth: {kbpsSent} KBps");
+            builder.Append($"   Packets Sent: {packetsSent:D5} ({pps:F2} pps)");
             builder.Append($"   KB Sent: {totalBytesSent / 1024f:F2}");
-            builder.Append($"   UDP Overhead: {udpOverhead:F2} %.");
-            logger.Log(builder.ToString());
+            builder.Append($"   UDP Overhead: {udpOverhead:F2}%.");
+            Log(builder.ToString());
         }
 
         protected void QueueEvent(UdpProtocolEvent evt)
@@ -550,7 +559,7 @@ namespace GGPOSharp.Network
                     if (oopPercent > 0 && ooPacket.message != null && random.Next() % 100 < oopPercent)
                     {
                         int delay = random.Next() % (sendLatency * 10 + 1000);
-                        logger.Log($"creating rogue oop (seq: {entry.message.SequenceNumber}  delay: {delay})");
+                        Log($"creating rogue oop (seq: {entry.message.SequenceNumber}  delay: {delay})");
                         ooPacket.queueTime = Utility.GetCurrentTime() + delay;
                         ooPacket.message = entry.message;
                         ooPacket.destAddress = entry.destAddress;
@@ -569,7 +578,7 @@ namespace GGPOSharp.Network
 
             if (ooPacket.message != null && ooPacket.queueTime < Utility.GetCurrentTime())
             {
-                logger.Log("sending rogue oop!");
+                Log("sending rogue oop!");
                 var ooMsg = Utility.GetByteArray(ooPacket.message);
                 udpClient.Send(ooMsg, ooMsg.Length);
 
@@ -593,14 +602,14 @@ namespace GGPOSharp.Network
 
         protected void LogMsg(string prefix, NetworkMessage msg)
         {
-            logger.Log($"{prefix} {msg.GetLogMessage()}");
+            Log($"{prefix} {msg.GetLogMessage()}");
         }
 
         protected void LogEvent(string prefix, UdpProtocolEvent evt)
         {
             if (evt.EventType == UdpProtocolEvent.Type.Synchronized)
             {
-                logger.Log($"{prefix} (event: Syncrhonized).");
+                Log($"{prefix} (event: Syncrhonized).");
             }
         }
 
@@ -614,7 +623,7 @@ namespace GGPOSharp.Network
         {
             if (remoteMagicNumber != 0 && msg.Magic != remoteMagicNumber)
             {
-                logger.Log($"Ignoring sync request from unknown endpoint ({msg.Magic} != {remoteMagicNumber}).");
+                Log($"Ignoring sync request from unknown endpoint ({msg.Magic} != {remoteMagicNumber}).");
                 return false;
             }
 
@@ -630,14 +639,14 @@ namespace GGPOSharp.Network
         {
             if (currentState != State.Syncing)
             {
-                logger.Log("Ignoring SyncReply while not synching.");
+                Log("Ignoring SyncReply while not synching.");
                 return msg.Magic == remoteMagicNumber;
             }
 
             var syncMsg = msg as SyncReplyMessage;
             if (syncMsg.RandomReply != syncState.random)
             {
-                logger.Log($"sync reply {syncMsg.RandomReply} != {syncState.random}.  Keep looking...");
+                Log($"sync reply {syncMsg.RandomReply} != {syncState.random}.  Keep looking...");
                 return false;
             }
 
@@ -647,7 +656,7 @@ namespace GGPOSharp.Network
                 connected = true;
             }
 
-            logger.Log($"Checking sync state ({syncState.roundTripsRemaining} round trips remaining).");
+            Log($"Checking sync state ({syncState.roundTripsRemaining} round trips remaining).");
             if (--syncState.roundTripsRemaining == 0)
             {
                 Log("Syncrhonized!");
@@ -679,7 +688,7 @@ namespace GGPOSharp.Network
             {
                 if (currentState != State.Disconnected && !disconnectEventSent)
                 {
-                    logger.Log("Disconnecting endpoint on remote request.");
+                    Log("Disconnecting endpoint on remote request.");
                     QueueEvent(new UdpProtocolEvent(UdpProtocolEvent.Type.Disconnected));
                     disconnectEventSent = true;
                 }
@@ -754,12 +763,12 @@ namespace GGPOSharp.Network
                         };
 
                         runningState.lastInputPacketReceiveTime = Utility.GetCurrentTime();
-                        logger.Log($"Sending frame {lastReceivedInput.frame} to emu queue {queue} ({lastReceivedInput.ToString()}).");
+                        Log($"Sending frame {lastReceivedInput.frame} to emu queue {queue} ({lastReceivedInput.ToString()}).");
                         QueueEvent(evt);
                     }
                     else
                     {
-                        logger.Log($"Skipping past frame:({currentFrame}) current is {lastReceivedInput.frame}.");
+                        Log($"Skipping past frame:({currentFrame}) current is {lastReceivedInput.frame}.");
                     }
 
                     // Move forward 1 frame in the input stream.
@@ -772,7 +781,7 @@ namespace GGPOSharp.Network
             // Get rid of our buffered input
             while (!pendingOutput.IsEmpty && pendingOutput.Front().frame < inputMsg.AckFrame)
             {
-                logger.Log($"Throwing away pending output frame {pendingOutput.Front().frame}");
+                Log($"Throwing away pending output frame {pendingOutput.Front().frame}");
                 lastAckedInput = pendingOutput.Front();
                 pendingOutput.Pop();
             }
@@ -787,7 +796,7 @@ namespace GGPOSharp.Network
             // Get rid of our buffered input
             while (!pendingOutput.IsEmpty && pendingOutput.Front().frame < inputMsg.AckFrame)
             {
-                logger.Log($"Throwing away pending output frame {pendingOutput.Front().frame}");
+                Log($"Throwing away pending output frame {pendingOutput.Front().frame}");
                 lastAckedInput = pendingOutput.Front();
                 pendingOutput.Pop();
             }

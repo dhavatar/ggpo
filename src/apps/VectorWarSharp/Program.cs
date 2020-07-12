@@ -101,7 +101,7 @@ namespace VectorWar
 
         static void Syntax()
         {
-            MessageBox.Show("Syntax: vectorwar.exe <local port> <num players> ('local' | <remote ip>:<remote port>)*\n",
+            MessageBox.Show("Syntax: vectorwar.exe <local port> <num players> ('local' | <remote ip>:<remote port>)*",
               "Could not start");
         }
 

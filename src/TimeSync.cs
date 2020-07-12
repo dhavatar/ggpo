@@ -59,7 +59,7 @@ namespace GGPOSharp
             // sleep for.
             int sleepFrames = (int)(((radvantage - advantage) / 2) + 0.5);
 
-            Logger.Log($"iteration {count}:  sleep frames is {sleepFrames}\n");
+            Logger.Log($"iteration {count}:  sleep frames is {sleepFrames}");
 
             // Some things just aren't worth correcting for.  Make sure
             // the difference is relevant before proceeding.
@@ -78,7 +78,7 @@ namespace GGPOSharp
                 {
                     if (!lastInputs[i].Equal(lastInputs[0], true))
                     {
-                        Logger.Log($"iteration {count}:  rejecting due to input stuff at position {i}...!!!\n");
+                        Logger.Log($"iteration {count}:  rejecting due to input stuff at position {i}...!!!");
                         return 0;
                     }
                 }

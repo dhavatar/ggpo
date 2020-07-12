@@ -11,6 +11,7 @@ namespace VectorWar
     /// a single structure. This makes it trivial to implement our GGPO
     /// save and load functions.
     /// </summary>
+    [Serializable]
     class GameState : IGameState
     {
         private static readonly ILog logger = new ConsoleLogger();
@@ -92,7 +93,7 @@ namespace VectorWar
 
         public void MoveShip(int index, double heading, double thrust, bool fire)
         {
-            logger.Log($"calculation of new ship coordinates: (thrust:{thrust:F0.4} heading:{heading:F0.4}).");
+            logger.Log($"calculation of new ship coordinates: (thrust:{thrust:F4} heading:{heading:F4}).");
 
             var ship = Ships[index];
             ship.heading = heading;
@@ -133,11 +134,11 @@ namespace VectorWar
                 }
             }
 
-            logger.Log($"new ship velocity: (dx:{ship.velocity.dx:F0.4} dy:{ship.velocity.dy:F2}).");
+            logger.Log($"new ship velocity: (dx:{ship.velocity.dx:F4} dy:{ship.velocity.dy:F2}).");
 
             ship.position.x += ship.velocity.dx;
             ship.position.y += ship.velocity.dy;
-            logger.Log($"new ship position: (dx:{ship.velocity.dx:F0.4} dy:{ship.velocity.dy:F2}).");
+            logger.Log($"new ship position: (dx:{ship.velocity.dx:F4} dy:{ship.velocity.dy:F2}).");
 
             if (ship.position.x - ship.radius < Bounds.Left ||
                 ship.position.x + ship.radius > Bounds.Right)

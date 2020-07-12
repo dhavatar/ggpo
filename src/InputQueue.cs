@@ -41,6 +41,10 @@ namespace GGPOSharp
 
             prediction = new GameInput(GameInput.NullFrame, null, (uint)inputSize);
             inputs = new GameInput[DefaultInputQueueLength];
+            for (int i = 0; i < inputs.Length; i++)
+            {
+                inputs[i] = new GameInput(GameInput.NullFrame, null, DefaultInputSize);
+            }
         }
 
         public int GetLastConfirmedFrame()
@@ -72,7 +76,7 @@ namespace GGPOSharp
             {
                 int offset = frame - inputs[tail].frame + 1;
 
-                Log($"difference of {offset} frames.\n");
+                Log($"difference of {offset} frames.");
                 Debug.Assert(offset >= 0);
 
                 tail = (tail + offset) % inputs.Length;
@@ -135,7 +139,7 @@ namespace GGPOSharp
                     offset = (offset + tail) % inputs.Length;
                     Debug.Assert(inputs[offset].frame == requestedFrame);
                     input = inputs[offset];
-                    Log($"returning confirmed frame number {input.frame}.\n");
+                    Log($"returning confirmed frame number {input.frame}.");
                     return true;
                 }
 
@@ -234,7 +238,7 @@ namespace GGPOSharp
                 // count up.
                 if (prediction.frame == lastFrameRequested && firstIncorrectFrame == GameInput.NullFrame)
                 {
-                    Log("prediction is correct!  dumping out of prediction mode.\n");
+                    Log("prediction is correct!  dumping out of prediction mode.");
                     prediction.frame = GameInput.NullFrame;
                 }
                 else
@@ -283,7 +287,7 @@ namespace GGPOSharp
         /// <param name="msg">String message to output.</param>
         private void Log(string msg)
         {
-            Logger.Log($"input q{id} | {msg}\n");
+            Logger.Log($"input q{id} | {msg}");
         }
 
         /// <summary>

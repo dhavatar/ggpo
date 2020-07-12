@@ -37,7 +37,8 @@ namespace VectorWar
         private GdiRenderer renderer;
         private PerformanceMonitor monitor = new PerformanceMonitor();
 
-        private long next, now = Utility.GetCurrentTime();
+        private long next = 0;
+        private long now = Utility.GetCurrentTime();
 
         private Random random = new Random();
 
@@ -138,7 +139,7 @@ namespace VectorWar
                 {
                     GameUpdate();
                     Refresh();
-                    next = (long)(now + (1000 / 60f));
+                    next = now + (long)(1000 / 60f);
                 }
             }
         }

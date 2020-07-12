@@ -55,7 +55,7 @@ namespace GGPOSharp
         protected int maxPredictionFrames;
 
         protected IGGPOSessionCallbacks callbacks;
-        protected SavedState savedState;
+        protected SavedState savedState = new SavedState(Constants.MaxPredictionFrames);
         protected Config config;
         protected InputQueue[] inputQueues;
         protected NetworkConnectStatus[] localConnectStatus;
@@ -246,11 +246,6 @@ namespace GGPOSharp
 
         protected int FindSavedFrameIndex(int frame)
         {
-            if (savedState.frames == null)
-            {
-                return 0;
-            }    
-
             int i, count = savedState.frames.Length;
             for (i = 0; i < count; i++)
             {
@@ -320,7 +315,7 @@ namespace GGPOSharp
 
         private void Log(string msg)
         {
-            Logger.Log($"{msg}\n");
+            Logger.Log($"{msg}");
         }
     }
 }

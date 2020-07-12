@@ -160,15 +160,15 @@ namespace GGPOSharp
         {
             if (!bitsOnly && frame != other.frame)
             {
-                Logger.Log($"frames don't match: {frame}, {other.frame}\n");
+                Logger.Log($"frames don't match: {frame}, {other.frame}");
             }
             if (size != other.size)
             {
-                Logger.Log($"sizes don't match: {size}, {other.size}\n");
+                Logger.Log($"sizes don't match: {size}, {other.size}");
             }
             if (bits.SequenceEqual(other.bits))
             {
-                Logger.Log("bits don't match\n");
+                Logger.Log("bits don't match");
             }
 
             Debug.Assert(size > 0 && other.size > 0);

@@ -549,6 +549,7 @@ namespace GGPOSharp.Backends
 
                 case UdpProtocolEvent.Type.Synchronized:
                     callbacks.OnSyncrhonized(handle);
+                    CheckInitialSync();
                     break;
 
                 case UdpProtocolEvent.Type.NetworkInterrupted:

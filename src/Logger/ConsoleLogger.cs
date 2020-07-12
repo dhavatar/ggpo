@@ -23,7 +23,7 @@ namespace GGPOSharp.Logger
         /// <param name="msg">String to output to the console.</param>
         public void Log(string msg)
         {
-            Console.WriteLine(msg);
+            Console.WriteLine($"[{DateTime.Now.ToString("HH:mm:ss:fff")}]: {msg}");
         }
     }
 }

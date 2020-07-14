@@ -60,9 +60,11 @@ namespace GGPOSharp
         protected InputQueue[] inputQueues;
         protected NetworkConnectStatus[] localConnectStatus;
 
-        public Sync(Config config)
+        public Sync(NetworkConnectStatus[] status, Config config)
         {
             this.config = config;
+            localConnectStatus = status;
+
             callbacks = config.callbacks;
             FrameCount = 0;
             InRollback = false;

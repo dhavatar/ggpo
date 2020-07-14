@@ -5,6 +5,7 @@ using System;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 
 namespace GGPOSharp.Backends
 {
@@ -55,18 +56,20 @@ namespace GGPOSharp.Backends
             }
 
             // Initialize the synchronziation layer
-            sync = new Sync(new Sync.Config
-            {
-                numPlayers = numPlayers,
-                inputSize = inputSize,
-                callbacks = callbacks,
-                numPredictionFrames = Constants.MaxPredictionFrames,
-            });
+            sync = new Sync(localConnectStatus,
+                new Sync.Config
+                {
+                    numPlayers = numPlayers,
+                    inputSize = inputSize,
+                    callbacks = callbacks,
+                    numPredictionFrames = Constants.MaxPredictionFrames,
+                });
 
             // Initialize the UDP port
             var udpEndpoint = new IPEndPoint(IPAddress.Any, localPort);
             udp = new UdpClient(udpEndpoint);
 
+            // Ignore the connect reset message in Windows to prevent a UDP shutdown exception
             udp.Client.IOControl(
                 (IOControlCode)SIO_UDP_CONNRESET,
                 new byte[] { 0, 0, 0, 0 },
@@ -215,6 +218,11 @@ namespace GGPOSharp.Backends
 
                 Log($"setting confirmed frame in sync to {lastConfirmedFrame}.");
                 sync.SetLastConfirmedFrame(lastConfirmedFrame);
+            }
+
+            if (timeout > 0)
+            {
+                Thread.Sleep(1);
             }
 
             return GGPOErrorCode.OK;
@@ -403,14 +411,14 @@ namespace GGPOSharp.Backends
                     totalMinConfirmed = Math.Min(localConnectStatus[i].LastFrame, totalMinConfirmed);
                 }
 
-                Log($"  local endp: connected = {!localConnectStatus[i].Disconnected}, last_received = {localConnectStatus[i].LastFrame}, total_min_confirmed = {totalMinConfirmed}.");
+                //Log($"  local endp: connected = {!localConnectStatus[i].Disconnected}, last_received = {localConnectStatus[i].LastFrame}, total_min_confirmed = {totalMinConfirmed}.");
                 if (!queueConnected && !localConnectStatus[i].Disconnected)
                 {
                     Log($"disconnecting i {i} by remote request.");
                     DisconnectPlayerQueue(i, totalMinConfirmed);
                 }
 
-                Log($"  total_min_confirmed = {totalMinConfirmed}.");
+                //Log($"  total_min_confirmed = {totalMinConfirmed}.");
             }
 
             return totalMinConfirmed;
@@ -505,6 +513,7 @@ namespace GGPOSharp.Backends
                     {
                         int currentRemoteFrame = localConnectStatus[queue].LastFrame;
                         int newRemoteFrame = inputEvt.Input.frame;
+                        Log($"currentRemoteFrame: {currentRemoteFrame}  newRemoteFrame: {newRemoteFrame}");
                         Debug.Assert(currentRemoteFrame == -1 || newRemoteFrame == (currentRemoteFrame + 1));
 
                         GameInput input = inputEvt.Input;

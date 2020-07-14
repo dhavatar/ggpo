@@ -130,6 +130,8 @@ namespace GGPOSharp.Network
         public UdpProtocol(UdpClient udpClient, Poll poll, int queue, string ipString, int port, NetworkConnectStatus[] status, ILog logger)
             : this(logger)
         {
+            this.queue = queue;
+
             peerConnectStatus = new NetworkConnectStatus[Constants.MaxPlayers];
             for (int i = 0; i < peerConnectStatus.Length; i++)
             {
@@ -426,7 +428,9 @@ namespace GGPOSharp.Network
                             Debug.Assert(i < (1 << Bitvector.NibbleSize));
                             if (current[i] != last[i])
                             {
+                                // Add a true bit here to signal that there's more input to parse
                                 Bitvector.SetBit(msg.Bits, ref offset);
+
                                 if (current[i])
                                 {
                                     Bitvector.SetBit(msg.Bits, ref offset);
@@ -440,6 +444,7 @@ namespace GGPOSharp.Network
                         }
                     }
 
+                    // Add a stop bit to signal the end of the inpu set
                     Bitvector.ClearBit(msg.Bits, ref offset);
                     last = lastSentInput = current;
                 }

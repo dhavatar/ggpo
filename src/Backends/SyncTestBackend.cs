@@ -33,11 +33,12 @@ namespace GGPOSharp.Backends
             this.numPlayers = numPlayers;
             
             // Initialize the synchronization layer
-            sync = new Sync(new Sync.Config
-            {
-                callbacks = callbacks,
-                numPredictionFrames = Constants.MaxPredictionFrames,
-            });
+            sync = new Sync(null,
+                new Sync.Config
+                {
+                    callbacks = callbacks,
+                    numPredictionFrames = Constants.MaxPredictionFrames,
+                });
         }
 
         public override GGPOErrorCode Idle(int timeout)

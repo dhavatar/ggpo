@@ -47,6 +47,7 @@ namespace VectorWar
             InitializeComponent();
             monitor.Hide();
 
+            // Double buffer and other parameters to help make the drawing have less flicker
             SetStyle(ControlStyles.UserPaint, true);
             SetStyle(ControlStyles.AllPaintingInWmPaint, true);
             SetStyle(ControlStyles.DoubleBuffer, true);
@@ -133,8 +134,8 @@ namespace VectorWar
         {
             while (IsApplicationIdle())
             {
-                ggpo.Idle(0);
                 now = Utility.GetCurrentTime();
+                ggpo.Idle((int)Math.Max(0, next - now - 1));
                 if (now >= next)
                 {
                     GameUpdate();

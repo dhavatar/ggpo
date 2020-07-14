@@ -1,5 +1,4 @@
-﻿using GGPOSharp.Interfaces;
-using System;
+﻿using System;
 
 namespace GGPOSharp.Network.Messages
 {
@@ -20,7 +19,7 @@ namespace GGPOSharp.Network.Messages
 
         public uint InputSize { get; set; }
 
-        public byte[] Bits { get; set; } = new byte[Constants.MaxCompressedBits];
+        public byte[] Bits { get; set; } = new byte[Constants.MaxCompressedBits / 8];
 
         public override string GetLogMessage()
         {

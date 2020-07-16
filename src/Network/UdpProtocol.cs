@@ -737,7 +737,7 @@ namespace GGPOSharp.Network
                     while (Bitvector.ReadBit(inputMsg.Bits, ref offset) > 0)
                     {
                         bool on = Bitvector.ReadBit(inputMsg.Bits, ref offset) > 0;
-                        int button = Bitvector.ReadBit(inputMsg.Bits, ref offset);
+                        int button = Bitvector.ReadNibblet(inputMsg.Bits, ref offset);
 
                         if (useInputs)
                         {

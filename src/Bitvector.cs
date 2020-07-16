@@ -58,9 +58,10 @@ namespace GGPOSharp
         /// </summary>
         /// <param name="vector">Bit vector to read.</param>
         /// <param name="offset">Reference integer index to the vector. Will increment by 1.</param>
+        /// <returns>The bit value 0/1 in the offset position.</returns>
         public static int ReadBit(byte[] vector, ref int offset)
         {
-            int retval = vector[offset / 8] & (1 << (offset % 8));
+            int retval = (vector[offset / 8] & (1 << (offset % 8))) > 0 ? 1 : 0;
             offset++;
             return retval;
         }
@@ -70,12 +71,13 @@ namespace GGPOSharp
         /// </summary>
         /// <param name="vector">Bit vector to read.</param>
         /// <param name="offset">Reference integer index to the vector. Will increment by 8.</param>
+        /// <returns>The nibblet value from the bit vector.</returns>
         public static int ReadNibblet(byte[] vector, ref int offset)
         {
             int nibblet = 0;
             for (int i = 0; i < NibbleSize; i++)
             {
-                nibblet |= (ReadBit(vector, ref offset) << i);
+                nibblet |= ReadBit(vector, ref offset) << i;
             }
             return nibblet;
         }

@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
-using System.Net.Sockets;
 using System.Text;
 
 namespace GGPOSharp.Network
@@ -39,8 +38,8 @@ namespace GGPOSharp.Network
 
         protected struct QueueEntry
         {
-            public long queueTime;
-            public IPAddress destAddress;
+            public uint queueTime;
+            public IPEndPoint destAddress;
             public NetworkMessage message;
         }
 
@@ -52,7 +51,7 @@ namespace GGPOSharp.Network
         public bool IsSynchronized => currentState == State.Synchronized || currentState == State.Running;
 
         // Network transmission information
-        UdpClient udpClient;
+        Udp udpClient;
         IPEndPoint udpEndpoint;
         ushort magicNumber;
         int queue = -1;
@@ -127,7 +126,7 @@ namespace GGPOSharp.Network
             // _oop_percent = Platform::GetConfigInt("ggpo.oop.percent");
         }
 
-        public UdpProtocol(UdpClient udpClient, Poll poll, int queue, string ipString, int port, NetworkConnectStatus[] status, ILog logger)
+        public UdpProtocol(Udp udpClient, Poll poll, int queue, string ipString, int port, NetworkConnectStatus[] status, ILog logger)
             : this(logger)
         {
             this.queue = queue;
@@ -143,16 +142,7 @@ namespace GGPOSharp.Network
             this.udpClient = udpClient;
             IPAddress ipAddress = IPAddress.Parse(ipString);
             udpEndpoint = new IPEndPoint(ipAddress, port);
-            try
-            {
-                udpClient.Connect(udpEndpoint);
-            }
-            catch (Exception e)
-            {
-                // TODO: Better logging
-                Console.WriteLine(e.ToString());
-            }
-
+            
             do
             {
                 magicNumber = (ushort)random.Next();
@@ -248,11 +238,11 @@ namespace GGPOSharp.Network
             }
         }
 
-        public bool OnLoopPoll()
+        public void OnLoopPoll(object state)
         {
             if (udpClient == null)
             {
-                return true;
+                return;
             }
 
             long now = Utility.GetCurrentTime();
@@ -333,13 +323,11 @@ namespace GGPOSharp.Network
                     if (shutdownTimeout < now)
                     {
                         Log("Shutting down udp connection.");
-                        udpClient.Close();
+                        udpClient.Dispose();
                         shutdownTimeout = 0;
                     }
                     break;
             }
-
-            return true;
         }
 
         public void SetLocalFrameNumber(int localFrame)
@@ -411,8 +399,8 @@ namespace GGPOSharp.Network
 
             if (!pendingOutput.IsEmpty)
             {   
-                msg.StartFrame = pendingOutput.Front().frame;
-                msg.InputSize = pendingOutput.Front().size;
+                msg.StartFrame = (uint)pendingOutput.Front().frame;
+                msg.InputSize = (byte)pendingOutput.Front().size;
 
                 Debug.Assert(last.frame == -1 || last.frame + 1 == msg.StartFrame);
 
@@ -484,7 +472,7 @@ namespace GGPOSharp.Network
             syncState.random = random.Next() & 0xFFFF;
             var msg = new SyncRequestMessage
             {
-                RandomRequest = syncState.random,
+                RandomRequest = (uint)syncState.random,
             };
             SendMessage(msg);
         }
@@ -505,10 +493,12 @@ namespace GGPOSharp.Network
                 sendQueue.Push(new QueueEntry
                 {
                     queueTime = Utility.GetCurrentTime(),
-                    destAddress = udpEndpoint.Address,
+                    destAddress = udpEndpoint,
                     message = msg,
                 });
             }
+
+            PumpSendQueue();
         }
 
         protected void UpdateNetworkStats()
@@ -563,7 +553,7 @@ namespace GGPOSharp.Network
 
                     if (oopPercent > 0 && ooPacket.message != null && random.Next() % 100 < oopPercent)
                     {
-                        int delay = random.Next() % (sendLatency * 10 + 1000);
+                        uint delay = (uint)(random.Next() % (sendLatency * 10 + 1000));
                         Log($"creating rogue oop (seq: {entry.message.SequenceNumber}  delay: {delay})");
                         ooPacket.queueTime = Utility.GetCurrentTime() + delay;
                         ooPacket.message = entry.message;
@@ -572,7 +562,7 @@ namespace GGPOSharp.Network
                     else
                     {
                         var byteMsg = Utility.GetByteArray(entry.message);
-                        udpClient.Send(byteMsg, byteMsg.Length);
+                        udpClient.SendTo(byteMsg, udpEndpoint);
 
                         entry.message = null;
                     }
@@ -585,7 +575,7 @@ namespace GGPOSharp.Network
             {
                 Log("sending rogue oop!");
                 var ooMsg = Utility.GetByteArray(ooPacket.message);
-                udpClient.Send(ooMsg, ooMsg.Length);
+                udpClient.SendTo(ooMsg, udpEndpoint);
 
                 ooPacket.message = null;
             }
@@ -719,12 +709,12 @@ namespace GGPOSharp.Network
             if (inputMsg.NumBits > 0)
             {
                 int offset = 0;
-                int currentFrame = inputMsg.StartFrame;
+                uint currentFrame = inputMsg.StartFrame;
 
                 lastReceivedInput.size = inputMsg.InputSize;
                 if (lastReceivedInput.frame < 0)
                 {
-                    lastReceivedInput.frame = inputMsg.StartFrame - 1;
+                    lastReceivedInput.frame = (int)(inputMsg.StartFrame - 1);
                 }
 
                 while (offset < inputMsg.NumBits)
@@ -759,7 +749,7 @@ namespace GGPOSharp.Network
                     {
                         // Move forward 1 frame in the stream.
                         Debug.Assert(currentFrame == lastReceivedInput.frame + 1);
-                        lastReceivedInput.frame = currentFrame;
+                        lastReceivedInput.frame = (int)currentFrame;
 
                         // Send the event to the emulator
                         var evt = new InputEvent

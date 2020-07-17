@@ -5,7 +5,7 @@ namespace GGPOSharp.Network
     [Serializable]
     public class NetworkConnectStatus
     {
-        private int data;
+        public int data;
 
         public bool Disconnected
         {
@@ -26,6 +26,15 @@ namespace GGPOSharp.Network
         {
             LastFrame = GameInput.NullFrame;
             Disconnected = false;
+        }
+
+        /// <summary>
+        /// Constructor that initializes the data directly.
+        /// </summary>
+        /// <param name="data">Data to set this connect status.</param>
+        public NetworkConnectStatus(int data)
+        {
+            this.data = data;
         }
 
         /// <summary>

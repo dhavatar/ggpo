@@ -4,16 +4,15 @@ using GGPOSharp.Network.Events;
 using System;
 using System.Diagnostics;
 using System.Net;
-using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 
 namespace GGPOSharp.Backends
 {
-    public class SpectatorBackend : GGPOSession
+    public class SpectatorBackend : GGPOSession, IUdpCallback
     {
         const int SpectatorFrameBufferSize = 64;
 
-        protected UdpClient udp;
+        protected Udp udp;
         protected UdpProtocol host;
         protected bool isSynchronizing = true;
         protected int inputSize;
@@ -37,26 +36,10 @@ namespace GGPOSharp.Backends
 
             // Initialize the UDP port
             var udpEndpoint = new IPEndPoint(IPAddress.Any, localPort);
-            udp = new UdpClient(udpEndpoint);
-            udp.BeginReceive(new System.AsyncCallback(OnMessage), null);
+            udp = new Udp(localPort, poll, this);
 
             // Initialize the host endpoint
             host = new UdpProtocol(udp, poll, 0, hostIp, hostPort, null, logger);
-        }
-
-        public void OnMessage(IAsyncResult res)
-        {
-            var endpoint = (IPEndPoint)res.AsyncState;
-
-            byte[] receiveBytes = udp.EndReceive(res, ref endpoint);
-            udp.BeginReceive(new System.AsyncCallback(OnMessage), endpoint);
-
-            var msg = Utility.Deserialize<NetworkMessage>(receiveBytes);
-
-            if (host.HandlesMessage(endpoint, msg))
-            {
-                host.OnMessage(msg);
-            }
         }
 
         public GGPOErrorCode DoPoll(int timeout)
@@ -169,5 +152,22 @@ namespace GGPOSharp.Backends
                     break;
             }
         }
+
+        #region IUdpCallback Implementation
+
+        /// <summary>
+        /// Udp callback when a new udp network message was received.
+        /// </summary>
+        /// <param name="endpoint"><see cref="IPEndPoint"/> containing the remote address:port that sent the message.</param>
+        /// <param name="msg">The <see cref="NetworkMessage"/> from the remote udp client.</param>
+        public void OnMessage(IPEndPoint endpoint, NetworkMessage msg)
+        {
+            if (host.HandlesMessage(endpoint, msg))
+            {
+                host.OnMessage(msg);
+            }
+        }
+
+        #endregion
     }
 }

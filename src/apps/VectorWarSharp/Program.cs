@@ -96,6 +96,7 @@ namespace VectorWar
                 app.Init(localPort, numPlayers, players, numSpectators);
             }
 
+            app.SyncTest = true;
             Application.Run(app);
         }
 

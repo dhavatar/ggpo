@@ -10,6 +10,7 @@
         public const int MaxSpectators = 32;
         public const int SpectatorInputInterval = 4;
         public const int MaxCompressedBits = 4096;
+        public const int MaxPollableHandles = 64;
 
         public const int InvalidHandle = -1;
     }

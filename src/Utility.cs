@@ -1,6 +1,8 @@
-﻿using GGPOSharp.Interfaces;
+﻿using GGPOSharp.Network.Messages;
 using System;
 using System.IO;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
 
 namespace GGPOSharp
@@ -14,9 +16,9 @@ namespace GGPOSharp
         /// Retrieves the current system time in milliseconds.
         /// </summary>
         /// <returns>Current system time in milliseconds.</returns>
-        public static long GetCurrentTime()
+        public static uint GetCurrentTime()
         {
-            return DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            return timeGetTime();
         }
 
         /// <summary>
@@ -50,18 +52,51 @@ namespace GGPOSharp
         }
 
         /// <summary>
-        /// Deserializes a byte array into the requested class.
+        /// Converts a NetworkMessage into a byte array.
+        /// </summary>
+        /// <param name="msg"><see cref="NetworkMessage"/> to convert.</param>
+        /// <returns>A byte array representation of the network message.</returns>
+        public static byte[] GetByteArray(NetworkMessage msg)
+        {
+            return msg.Serialize();
+        }
+
+        /// <summary>
+        /// Deserializes a byte array into the proper <see cref="NetworkMessage"/>.
         /// </summary>
         /// <typeparam name="T">Class to convert the byte array into.</typeparam>
         /// <param name="data">Byte array of the class information.</param>
-        /// <returns>Class from the converted byte array.</returns>
-        public static T Deserialize<T>(byte[] data)
+        /// <returns><see cref="NetworkMessage"/> class from the converted byte array.</returns>
+        public static NetworkMessage Deserialize(byte[] data)
         {
-            using (MemoryStream ms = new MemoryStream(data))
+            // Get the 5th byte to determine the message type
+            var type = (MessageType)data[4];
+            switch (type)
             {
-                var bf = new BinaryFormatter();
-                return (T)bf.Deserialize(ms);
+                case MessageType.Input:
+                    return new InputMessage(data);
+
+                case MessageType.InputAck:
+                    return new InputAckMessage(data);
+
+                case MessageType.KeepAlive:
+                    return new KeepAliveMessage(data);
+
+                case MessageType.QualityReply:
+                    return new QualityReplyMessage(data);
+
+                case MessageType.QualityReport:
+                    return new QualityReportMessage(data);
+
+                case MessageType.SyncReply:
+                    return new SyncReplyMessage(data);
+
+                case MessageType.SyncRequest:
+                    return new SyncRequestMessage(data);
             }
+
+            // Shouldn't reach here
+            return null;
         }
 
         /// <summary>
@@ -108,5 +143,8 @@ namespace GGPOSharp
             sum2 = (sum2 & 0xffff) + (sum2 >> 16);
             return sum2 << 16 | sum1;
         }
+
+        [DllImport("winmm.dll")]
+        public static extern UInt32 timeGetTime();
     }
 }

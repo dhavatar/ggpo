@@ -76,12 +76,15 @@ namespace GGPOSharp
         }
 
         /// <summary>
-        /// Removes the front item in the ring buffer.
+        /// Removes the front item in the ring buffer and returns it.
         /// </summary>
-        public void Pop()
+        /// <returns>The front item in the ring buffer.</returns>
+        public T Pop()
         {
             Debug.Assert(Size != Capacity);
+            T item = Front();
             tail = (tail + 1) % Capacity;
+            return item;
         }
 
         /// <summary>

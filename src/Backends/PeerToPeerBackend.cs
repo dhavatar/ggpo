@@ -4,14 +4,12 @@ using GGPOSharp.Network.Events;
 using System;
 using System.Diagnostics;
 using System.Net;
-using System.Net.Sockets;
 using System.Threading;
 
 namespace GGPOSharp.Backends
 {
-    public class PeerToPeerBackend : GGPOSession
+    public class PeerToPeerBackend : GGPOSession, IUdpCallback
     {
-        public const int SIO_UDP_CONNRESET = -1744830452;
         public const int RecommendationInterval = 240;
         public const int DefaultDisconnectTimeout = 5000;
         public const int DefaultDisconnectNotifyStart = 750;
@@ -27,7 +25,7 @@ namespace GGPOSharp.Backends
         protected NetworkConnectStatus[] localConnectStatus = new NetworkConnectStatus[Constants.MaxPlayers];
         protected UdpProtocol[] endpoints;
         protected UdpProtocol[] spectators = new UdpProtocol[Constants.MaxSpectators];
-        protected UdpClient udp;
+        protected Udp udp;
 
         private Poll poll = new Poll();
 
@@ -67,43 +65,7 @@ namespace GGPOSharp.Backends
 
             // Initialize the UDP port
             var udpEndpoint = new IPEndPoint(IPAddress.Any, localPort);
-            udp = new UdpClient(udpEndpoint);
-
-            // Ignore the connect reset message in Windows to prevent a UDP shutdown exception
-            udp.Client.IOControl(
-                (IOControlCode)SIO_UDP_CONNRESET,
-                new byte[] { 0, 0, 0, 0 },
-                null
-            );
-            udp.BeginReceive(new System.AsyncCallback(OnMessage), udpEndpoint);
-        }
-
-        public void OnMessage(IAsyncResult res)
-        {
-            var endpoint = (IPEndPoint)res.AsyncState;
-
-            byte[] receiveBytes = udp.EndReceive(res, ref endpoint);
-            udp.BeginReceive(new System.AsyncCallback(OnMessage), endpoint);
-
-            var msg = Utility.Deserialize<NetworkMessage>(receiveBytes);
-
-            for (int i = 0; i < numPlayers; i++)
-            {
-                if (endpoints[i].HandlesMessage(endpoint, msg))
-                {
-                    endpoints[i].OnMessage(msg);
-                    return;
-                }
-            }
-
-            for (int i = 0; i < numSpectators; i++)
-            {
-                if (spectators[i].HandlesMessage(endpoint, msg))
-                {
-                    spectators[i].OnMessage(msg);
-                    return;
-                }
-            }
+            udp = new Udp(localPort, poll, this);
         }
 
         public override GGPOErrorCode AddLocalInput(int playerHandle, byte[] values)
@@ -643,5 +605,35 @@ namespace GGPOSharp.Backends
         {
             return queue + 1000;
         }
+
+        #region IUdpCallback Implementation
+
+        /// <summary>
+        /// Udp callback when a new udp network message was received.
+        /// </summary>
+        /// <param name="endpoint"><see cref="IPEndPoint"/> containing the remote address:port that sent the message.</param>
+        /// <param name="msg">The <see cref="NetworkMessage"/> from the remote udp client.</param>
+        public void OnMessage(IPEndPoint endpoint, NetworkMessage msg)
+        {
+            for (int i = 0; i < numPlayers; i++)
+            {
+                if (endpoints[i].HandlesMessage(endpoint, msg))
+                {
+                    endpoints[i].OnMessage(msg);
+                    return;
+                }
+            }
+
+            for (int i = 0; i < numSpectators; i++)
+            {
+                if (spectators[i].HandlesMessage(endpoint, msg))
+                {
+                    spectators[i].OnMessage(msg);
+                    return;
+                }
+            }
+        }
+
+        #endregion
     }
 }

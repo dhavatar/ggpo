@@ -2,6 +2,6 @@
 {
     public interface IPollSink
     {
-        bool OnLoopPoll();
+        void OnLoopPoll(object state);
     }
 }

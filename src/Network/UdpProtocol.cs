@@ -3,6 +3,7 @@ using GGPOSharp.Network.Events;
 using GGPOSharp.Network.Messages;
 using System;
 using System.Collections.Generic;
+using System.Data.SqlTypes;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
@@ -719,10 +720,12 @@ namespace GGPOSharp.Network
 
                 while (offset < inputMsg.NumBits)
                 {
+                    Console.WriteLine($"[Beginning] currentFrame: {currentFrame} lastReceivedInput.frame: {lastReceivedInput.frame} sequence: {inputMsg.SequenceNumber}");
                     // Keep walking through the frames (parsing bits) until we reach
                     // the inputs for the frame right after the one we're on.
-                    Debug.Assert(currentFrame <= lastReceivedInput.frame + 1);
-                    bool useInputs = currentFrame == lastReceivedInput.frame + 1;
+                    Debug.Assert(currentFrame <= lastReceivedInput.frame + 1,
+                        $"currentFrame is {currentFrame} and lastRecievedInput.frame is {lastReceivedInput.frame} from sequence {inputMsg.SequenceNumber}");
+                    bool useInputs = currentFrame == (lastReceivedInput.frame + 1);
 
                     while (Bitvector.ReadBit(inputMsg.Bits, ref offset) > 0)
                     {
@@ -748,7 +751,8 @@ namespace GGPOSharp.Network
                     if (useInputs)
                     {
                         // Move forward 1 frame in the stream.
-                        Debug.Assert(currentFrame == lastReceivedInput.frame + 1);
+                        Debug.Assert(currentFrame == lastReceivedInput.frame + 1,
+                            $"currentFrame is {currentFrame} and lastRecievedInput.frame is {lastReceivedInput.frame} from sequence {inputMsg.SequenceNumber}");
                         lastReceivedInput.frame = (int)currentFrame;
 
                         // Send the event to the emulator

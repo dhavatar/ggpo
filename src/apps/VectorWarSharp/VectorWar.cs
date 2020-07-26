@@ -7,6 +7,8 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using VectorWar.DataStructure;
 
@@ -37,8 +39,8 @@ namespace VectorWar
         private GdiRenderer renderer;
         private PerformanceMonitor monitor = new PerformanceMonitor();
 
-        private long next = 0;
-        private long now = Utility.GetCurrentTime();
+        private uint next = 0;
+        private uint now = Utility.GetCurrentTime();
 
         private Random random = new Random();
 
@@ -54,7 +56,6 @@ namespace VectorWar
 
             renderer = new GdiRenderer(new Rectangle(0, 0, ClientSize.Width, ClientSize.Height));
 
-            Application.Idle += HandleApplicationIdle;
             Paint += VectorWar_Paint;
             KeyDown += VectorWar_KeyDown;
             KeyUp += VectorWar_KeyUp;
@@ -100,6 +101,7 @@ namespace VectorWar
             }
 
             lblStatus.Text = "Connecting to peers.";
+            Task.Factory.StartNew(() => HandleApplicationIdle(this, ggpo), TaskCreationOptions.LongRunning);
         }
 
         /// <summary>
@@ -117,6 +119,7 @@ namespace VectorWar
             ggpo = new SpectatorBackend(this, new ConsoleLogger(), localPort, numPlayers, 4, hostIp, hostPort);
 
             lblStatus.Text = "Starting new spectator session";
+            Task.Factory.StartNew(() => HandleApplicationIdle(this, ggpo), TaskCreationOptions.LongRunning);
         }
 
         private void InitializeGameState(int numPlayers)
@@ -128,19 +131,20 @@ namespace VectorWar
         /// <summary>
         /// Runs the game loop inside the form.
         /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        void HandleApplicationIdle(object sender, EventArgs e)
+        void HandleApplicationIdle(VectorWar form, GGPOSession ggpo)
         {
-            while (IsApplicationIdle())
+            while (true)
             {
-                now = Utility.GetCurrentTime();
-                ggpo.Idle((int)Math.Max(0, next - now - 1));
-                if (now >= next)
+                while (IsApplicationIdle())
                 {
-                    GameUpdate();
-                    Refresh();
-                    next = now + (long)(1000 / 60f);
+                    now = Utility.GetCurrentTime();
+                    form.Invoke((MethodInvoker)delegate { ggpo.Idle((int)Math.Max(0, next - now - 1)); });
+                    if (now >= next)
+                    {
+                        form.Invoke((MethodInvoker)delegate { GameUpdate(); });
+                        form.Invoke((MethodInvoker)delegate { Refresh(); });
+                        next = now + (uint)(1000 / 60f);
+                    }
                 }
             }
         }
@@ -156,9 +160,9 @@ namespace VectorWar
         }
 
         /// <summary>
-        /// Updates any game state changes.
+        /// Updates any game state changes and runs a frame of the game.
         /// </summary>
-        void GameUpdate()
+        public void GameUpdate()
         {
             var result = GGPOErrorCode.OK;
             int disconnectFlags = 0;
@@ -411,7 +415,7 @@ namespace VectorWar
 
         public void OnTimeSync(int framesAhead)
         {
-            // Thread.Sleep(1000 * framesAhead / 60);
+            Thread.Sleep(1000 * framesAhead / 60);
         }
 
         #endregion

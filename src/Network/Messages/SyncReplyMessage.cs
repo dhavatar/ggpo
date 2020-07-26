@@ -31,7 +31,7 @@ namespace GGPOSharp.Network.Messages
         /// <returns>A byte array representing the network message.</returns>
         public override byte[] Serialize()
         {
-            var data = new byte[12];
+            var data = new byte[9];
             SerializeBase(ref data);
 
             Unsafe.CopyBlock(ref data[5], ref BitConverter.GetBytes(RandomReply)[0], 4);

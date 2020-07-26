@@ -43,8 +43,7 @@ namespace GGPOSharp.Network
         /// <param name="other"><see cref="NetworkConnectStatus"/> to copy into this class.</param>
         public void Copy(NetworkConnectStatus other)
         {
-            Disconnected = other.Disconnected;
-            LastFrame = other.LastFrame;
+            data = other.data;
         }
 
         /// <summary>

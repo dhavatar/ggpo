@@ -4,6 +4,7 @@ using GGPOSharp.Network.Events;
 using System;
 using System.Diagnostics;
 using System.Net;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace GGPOSharp.Backends
@@ -18,7 +19,7 @@ namespace GGPOSharp.Backends
         protected int numSpectators = 0;
         protected int inputSize;
         protected bool isSynchronizing;
-        protected int nextRecommendedSleep;
+        protected int nextRecommendedSleep = 0;
         protected int nextSpectatorFrame = 0;
         protected int disconnectTimeout = DefaultDisconnectTimeout;
         protected int disconnectNotifyStart = DefaultDisconnectNotifyStart;
@@ -182,6 +183,23 @@ namespace GGPOSharp.Backends
                 sync.SetLastConfirmedFrame(lastConfirmedFrame);
             }
 
+            // Send timesync notifications if now is the proper time
+            if (sync.FrameCount > nextRecommendedSleep)
+            {
+                int interval = 0;
+                for (int i = 0; i < numPlayers; i++)
+                {
+                    interval = Math.Max(interval, endpoints[i].RecommendFrameDelay());
+                }
+
+                if (interval > 0)
+                {
+                    callbacks.OnTimeSync(interval);
+                    nextRecommendedSleep = sync.FrameCount + RecommendationInterval;
+                }
+            }
+
+            // TODO: What does this do?
             if (timeout > 0)
             {
                 Thread.Sleep(1);

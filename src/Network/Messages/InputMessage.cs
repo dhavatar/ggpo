@@ -22,7 +22,13 @@ namespace GGPOSharp.Network.Messages
 
         public byte[] Bits { get; set; } = new byte[Constants.MaxCompressedBits / 8];
 
-        public InputMessage() { }
+        public InputMessage()
+        {
+            for (int i = 0; i < PeerConnectStatus.Length; i++)
+            {
+                PeerConnectStatus[i] = new NetworkConnectStatus();
+            }
+        }
 
         public InputMessage(byte[] data)
         {
@@ -40,7 +46,8 @@ namespace GGPOSharp.Network.Messages
         /// <returns>A byte array representing the network message.</returns>
         public override byte[] Serialize()
         {
-            var data = new byte[544];
+            var totalSize = 32 + (int)Math.Ceiling(NumBits / 8f);
+            var data = new byte[totalSize];
             SerializeBase(ref data);
 
             for (int i = 0; i < PeerConnectStatus.Length; i++)
@@ -71,7 +78,10 @@ namespace GGPOSharp.Network.Messages
 
             data[offset++] = InputSize;
 
-            Unsafe.CopyBlock(ref data[offset], ref Bits[0], Constants.MaxCompressedBits / 8);
+            if (NumBits > 0)
+            {
+                Unsafe.CopyBlock(ref data[offset], ref Bits[0], (ushort)Math.Ceiling(NumBits / 8f));
+            }
 
             return data;
         }
@@ -104,7 +114,10 @@ namespace GGPOSharp.Network.Messages
 
             InputSize = data[offset++];
 
-            Unsafe.CopyBlock(ref Bits[0], ref data[offset], Constants.MaxCompressedBits / 8);
+            if (NumBits > 0)
+            {
+                Unsafe.CopyBlock(ref Bits[0], ref data[offset], (ushort)Math.Ceiling(NumBits / 8f));
+            }
         }
     }
 }

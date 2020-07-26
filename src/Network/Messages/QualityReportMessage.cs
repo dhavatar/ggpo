@@ -33,7 +33,7 @@ namespace GGPOSharp.Network.Messages
         /// <returns>A byte array representing the network message.</returns>
         public override byte[] Serialize()
         {
-            var data = new byte[12];
+            var data = new byte[11];
             SerializeBase(ref data);
 
             data[5] = FrameAdvantage;

@@ -683,6 +683,7 @@ namespace GGPOSharp.Network
         protected bool OnInput(NetworkMessage msg)
         {
             var inputMsg = msg as InputMessage;
+            Log($"[OnInput] Processing sequence {msg.SequenceNumber}");
 
             // If a disconnect is requested, go ahead and disconnect now.
             bool disconnectRequested = inputMsg.DisconnectRequested;
@@ -790,6 +791,7 @@ namespace GGPOSharp.Network
                 pendingOutput.Pop();
             }
 
+            Log($"[OnInput] Completed sequence {msg.SequenceNumber}");
             return true;
         }
 

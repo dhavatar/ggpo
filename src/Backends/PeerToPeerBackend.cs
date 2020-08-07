@@ -235,7 +235,7 @@ namespace GGPOSharp.Backends
 
         public override GGPOErrorCode SyncInput(ref byte[] values, ref int disconnectFlags)
         {
-            if (!isSynchronizing)
+            if (isSynchronizing)
             {
                 disconnectFlags = 0;
                 return GGPOErrorCode.NotSynchronized;

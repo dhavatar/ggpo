@@ -364,7 +364,6 @@ namespace VectorWar
                     file.WriteLine($"  ship {i} radius:    {ship.radius}.");
                     file.WriteLine($"  ship {i} heading:   {ship.heading}.");
                     file.WriteLine($"  ship {i} health:    {ship.health}.");
-                    file.WriteLine($"  ship {i} speed:     {ship.speed}.");
                     file.WriteLine($"  ship {i} cooldown:  {ship.cooldown}.");
                     file.WriteLine($"  ship {i} score:     {ship.score}.");
 

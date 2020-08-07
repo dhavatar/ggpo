@@ -10,7 +10,6 @@ namespace VectorWar.DataStructure
         public int radius;
         public double heading;
         public int health;
-        public int speed;
         public int cooldown;
         public Bullet[] bullets = new Bullet[Constants.MaxBullets];
         public int score;

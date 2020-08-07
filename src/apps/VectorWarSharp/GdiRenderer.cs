@@ -104,12 +104,12 @@ namespace VectorWar
 
             for (int i = 0; i < shape.Length; i++)
             {
-                double theta = ship.heading * Math.PI / 180;
+                double theta = ship.heading * Math.PI / 180f;
                 double cost = Math.Cos(theta);
                 double sint = Math.Sin(theta);
 
                 double newX = shape[i].X * cost - shape[i].Y * sint;
-                double newY = shape[i].X * sint - shape[i].Y * cost;
+                double newY = shape[i].X * sint + shape[i].Y * cost;
 
                 shape[i].X = (int)(newX + ship.position.x);
                 shape[i].Y = (int)(newY + ship.position.y);

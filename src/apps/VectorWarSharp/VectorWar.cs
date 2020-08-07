@@ -16,6 +16,8 @@ namespace VectorWar
 {
     public partial class VectorWar : Form, IGGPOSessionCallbacks
     {
+        public delegate Task TaskMethodInvoker();
+
         static readonly Dictionary<Keys, int> InputTable = new Dictionary<Keys, int>()
         {
             { Keys.Up, (int)VectorWarInputs.Thrust },
@@ -131,18 +133,18 @@ namespace VectorWar
         /// <summary>
         /// Runs the game loop inside the form.
         /// </summary>
-        void HandleApplicationIdle(VectorWar form, GGPOSession ggpo)
+        async Task HandleApplicationIdle(VectorWar form, GGPOSession ggpo)
         {
             while (true)
             {
                 while (IsApplicationIdle())
                 {
                     now = Utility.GetCurrentTime();
-                    form.Invoke((MethodInvoker)delegate { ggpo.Idle((int)Math.Max(0, next - now - 1)); });
+                    await (Task)form.Invoke((TaskMethodInvoker)delegate { ggpo.Idle((int)Math.Max(0, next - now - 1)); return Task.CompletedTask; });
                     if (now >= next)
                     {
-                        form.Invoke((MethodInvoker)delegate { GameUpdate(); });
-                        form.Invoke((MethodInvoker)delegate { Refresh(); });
+                        await (Task)form.Invoke((TaskMethodInvoker)delegate { GameUpdate(); return Task.CompletedTask; });
+                        await (Task)form.Invoke((TaskMethodInvoker)delegate { Refresh(); return Task.CompletedTask; });
                         next = now + (uint)(1000 / 60f);
                     }
                 }

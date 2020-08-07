@@ -3,7 +3,6 @@ using GGPOSharp.Network.Events;
 using GGPOSharp.Network.Messages;
 using System;
 using System.Collections.Generic;
-using System.Data.SqlTypes;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
@@ -104,6 +103,8 @@ namespace GGPOSharp.Network
 
         ILog logger;
         Random random = new Random();
+        private readonly object dispatchLock = new object();
+        private int lastSequenceProcessed = -1;
 
         private Dictionary<MessageType, Func<NetworkMessage, bool>> dispatchTable;
         
@@ -223,9 +224,14 @@ namespace GGPOSharp.Network
             {
                 OnInvalid(msg);
             }
-            else
+            else if (msg.SequenceNumber > lastSequenceProcessed)
             {
-                handled = dispatchTable[msg.Type].Invoke(msg);
+                // Make sure we're not processing an older packet if it got through and lock the dispatch to force it to run in a single thread.
+                lastSequenceProcessed = msg.SequenceNumber;
+                lock (dispatchLock)
+                {
+                    handled = dispatchTable[msg.Type].Invoke(msg);
+                }
             }
 
             if (handled)
@@ -720,7 +726,6 @@ namespace GGPOSharp.Network
 
                 while (offset < inputMsg.NumBits)
                 {
-                    Console.WriteLine($"[Beginning] currentFrame: {currentFrame} lastReceivedInput.frame: {lastReceivedInput.frame} sequence: {inputMsg.SequenceNumber}");
                     // Keep walking through the frames (parsing bits) until we reach
                     // the inputs for the frame right after the one we're on.
                     Debug.Assert(currentFrame <= lastReceivedInput.frame + 1,

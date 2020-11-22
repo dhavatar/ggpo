@@ -1,16 +1,12 @@
 ﻿using GGPOSharp.Interfaces;
-using GGPOSharp.Logger;
 using System;
 using System.Net;
 using System.Net.Sockets;
 
 namespace GGPOSharp.Network
 {
-    public class Udp : IPollSink, IDisposable
+    public class Udp : BaseLogging, IPollSink, IDisposable
     {
-        // TODO: Allow other people to change this logger
-        private static readonly ILog Logger = ConsoleLogger.GetLogger();
-
         public const int SIO_UDP_CONNRESET = -1744830452;
 
         private UdpClient udpClient;
@@ -18,7 +14,8 @@ namespace GGPOSharp.Network
         private IUdpCallback callback;
         private IPEndPoint endpoint;
 
-        public Udp(int port, Poll poll, IUdpCallback callback)
+        public Udp(int port, Poll poll, IUdpCallback callback, ILog logger = null)
+            : base(logger)
         {
             this.callback = callback;
             this.poll = poll;
@@ -48,11 +45,6 @@ namespace GGPOSharp.Network
         {
             Log($"Sending packet size {buffer.Length} to {endpoint.Address}:{endpoint.Port}");
             udpClient.Send(buffer, buffer.Length, endpoint);
-        }
-
-        private void Log(string msg)
-        {
-            Logger.Log(msg);
         }
 
         public void OnLoopPoll(object state)

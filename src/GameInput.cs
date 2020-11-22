@@ -1,6 +1,4 @@
-﻿using GGPOSharp.Interfaces;
-using GGPOSharp.Logger;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
@@ -12,9 +10,6 @@ namespace GGPOSharp
     /// </summary>
     public struct GameInput
     {
-        // TODO: Allow other people to change this logger
-        private static readonly ILog Logger = ConsoleLogger.GetLogger();
-
         // MaxBytes * MaxPlayers * 8 must be less than
         // 2^NibbleSize (see Bitvector)
 
@@ -141,16 +136,6 @@ namespace GGPOSharp
         }
 
         /// <summary>
-        /// Helper method to log game input state.
-        /// </summary>
-        /// <param name="prefix">String prefix to add to the string log.</param>
-        /// <param name="showFrame">True if the frame information should be included. Defaults to true.</param>
-        public void Log(string prefix, bool showFrame = true)
-        {
-            Logger.Log(prefix + ToString(showFrame));
-        }
-
-        /// <summary>
         /// Comparison function between two game inputs.
         /// </summary>
         /// <param name="other">The <see cref="GameInput"/> to compare against.</param>
@@ -160,15 +145,15 @@ namespace GGPOSharp
         {
             if (!bitsOnly && frame != other.frame)
             {
-                Logger.Log($"frames don't match: {frame}, {other.frame}");
+                Debug.Print($"frames don't match: {frame}, {other.frame}");
             }
             if (size != other.size)
             {
-                Logger.Log($"sizes don't match: {size}, {other.size}");
+                Debug.Print($"sizes don't match: {size}, {other.size}");
             }
             if (bits.SequenceEqual(other.bits))
             {
-                Logger.Log("bits don't match");
+                Debug.Print("bits don't match");
             }
 
             Debug.Assert(size > 0 && other.size > 0);

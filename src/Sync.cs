@@ -1,16 +1,12 @@
 ﻿using GGPOSharp.Interfaces;
-using GGPOSharp.Logger;
 using GGPOSharp.Network;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace GGPOSharp
 {
-    public class Sync
+    public class Sync : BaseLogging
     {
-        // TODO: Allow other people to change this logger
-        private static readonly ILog Logger = ConsoleLogger.GetLogger();
-
         public struct SavedFrame
         {
             public IGameState buffer;
@@ -60,7 +56,8 @@ namespace GGPOSharp
         protected InputQueue[] inputQueues;
         protected NetworkConnectStatus[] localConnectStatus;
 
-        public Sync(NetworkConnectStatus[] status, Config config)
+        public Sync(NetworkConnectStatus[] status, Config config, ILog logger = null)
+            : base(logger)
         {
             this.config = config;
             localConnectStatus = status;
@@ -313,11 +310,6 @@ namespace GGPOSharp
             {
                 inputQueues[i].ResetPrediction(frameNumber);
             }
-        }
-
-        private void Log(string msg)
-        {
-            Logger.Log($"{msg}");
         }
     }
 }

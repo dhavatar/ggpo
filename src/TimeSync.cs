@@ -1,15 +1,11 @@
 ﻿using GGPOSharp.Interfaces;
-using GGPOSharp.Logger;
 using System;
 using System.Linq;
 
 namespace GGPOSharp
 {
-    class TimeSync
+    class TimeSync : BaseLogging
     {
-        // TODO: Allow other people to change this logger
-        private static readonly ILog Logger = ConsoleLogger.GetLogger();
-
         private static int count = 0;
 
         public const int FrameWindowSize = 40;
@@ -22,7 +18,8 @@ namespace GGPOSharp
         protected GameInput[] lastInputs;
         protected int nextPrediction;
 
-        public TimeSync()
+        public TimeSync(ILog logger = null)
+            : base(logger)
         {
             local = new int[FrameWindowSize];
             remote = new int[FrameWindowSize];
@@ -59,7 +56,7 @@ namespace GGPOSharp
             // sleep for.
             int sleepFrames = (int)(((radvantage - advantage) / 2) + 0.5);
 
-            Logger.Log($"iteration {count}:  sleep frames is {sleepFrames}");
+            Log($"iteration {count}:  sleep frames is {sleepFrames}");
 
             // Some things just aren't worth correcting for.  Make sure
             // the difference is relevant before proceeding.
@@ -78,7 +75,7 @@ namespace GGPOSharp
                 {
                     if (!lastInputs[i].Equal(lastInputs[0], true))
                     {
-                        Logger.Log($"iteration {count}:  rejecting due to input stuff at position {i}...!!!");
+                        Log($"iteration {count}:  rejecting due to input stuff at position {i}...!!!");
                         return 0;
                     }
                 }

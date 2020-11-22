@@ -9,7 +9,7 @@ using System.Text;
 
 namespace GGPOSharp.Network
 {
-    public class UdpProtocol : IPollSink
+    public class UdpProtocol : BaseLogging, IPollSink
     {
         // Size of IP + UDP headers
         public const int UdpHeaderSize = 28;
@@ -101,17 +101,14 @@ namespace GGPOSharp.Network
         RingBuffer<UdpProtocolEvent> eventQueue = new RingBuffer<UdpProtocolEvent>(64);
         private readonly object queueLock = new object();
 
-        ILog logger;
         Random random = new Random();
         private readonly object dispatchLock = new object();
         private int lastSequenceProcessed = -1;
 
         private Dictionary<MessageType, Func<NetworkMessage, bool>> dispatchTable;
         
-        public UdpProtocol(ILog logger)
+        public UdpProtocol(ILog logger) : base(logger)
         {
-            this.logger = logger;
-
             dispatchTable = new Dictionary<MessageType, Func<NetworkMessage, bool>>
             {
                 { MessageType.Invalid, (msg) => OnInvalid(msg) },
@@ -595,11 +592,6 @@ namespace GGPOSharp.Network
                 sendQueue.Front().message = null;
                 sendQueue.Pop();
             }
-        }
-
-        protected void Log(string msg)
-        {
-            logger.Log(msg);
         }
 
         protected void LogMsg(string prefix, NetworkMessage msg)

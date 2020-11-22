@@ -76,7 +76,8 @@ namespace VectorWar
             // Initialize the game state
             InitializeGameState(numPlayers);
 
-            ggpo = new PeerToPeerBackend(this, new ConsoleLogger(), localPort, numPlayers, 4);
+            //ggpo = new PeerToPeerBackend(this, new ConsoleLogger(), localPort, numPlayers, 4);
+            ggpo = new PeerToPeerBackend(this, new RollingBufferFileLogger("vectorwar"), localPort, numPlayers, 4);
 
             // automatically disconnect clients after 3000 ms and start our count-down timer
             // for disconnects after 1000 ms.   To completely disable disconnects, simply use
@@ -118,7 +119,8 @@ namespace VectorWar
             // Initialize the game state
             InitializeGameState(numPlayers);
 
-            ggpo = new SpectatorBackend(this, new ConsoleLogger(), localPort, numPlayers, 4, hostIp, hostPort);
+            //ggpo = new SpectatorBackend(this, new ConsoleLogger(), localPort, numPlayers, 4, hostIp, hostPort);
+            ggpo = new SpectatorBackend(this, new RollingBufferFileLogger("vectorwar"), localPort, numPlayers, 4, hostIp, hostPort);
 
             lblStatus.Text = "Starting new spectator session";
             Task.Factory.StartNew(() => HandleApplicationIdle(this, ggpo), TaskCreationOptions.LongRunning);

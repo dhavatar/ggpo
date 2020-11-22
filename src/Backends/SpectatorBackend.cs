@@ -1,7 +1,6 @@
 ﻿using GGPOSharp.Interfaces;
 using GGPOSharp.Network;
 using GGPOSharp.Network.Events;
-using System;
 using System.Diagnostics;
 using System.Net;
 using System.Runtime.CompilerServices;

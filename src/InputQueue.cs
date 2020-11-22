@@ -1,15 +1,11 @@
 ﻿using GGPOSharp.Interfaces;
-using GGPOSharp.Logger;
 using System;
 using System.Diagnostics;
 
 namespace GGPOSharp
 {
-    public class InputQueue
+    public class InputQueue : BaseLogging
     {
-        // TODO: Allow other people to change this logger
-        private static readonly ILog Logger = ConsoleLogger.GetLogger();
-
         public const int DefaultInputQueueLength = 128;
         public const int DefaultInputSize = 4;
 
@@ -28,7 +24,8 @@ namespace GGPOSharp
         protected GameInput[] inputs;
         protected GameInput prediction;
 
-        public InputQueue(int inputSize = DefaultInputSize, int id = -1)
+        public InputQueue(int inputSize = DefaultInputSize, int id = -1, ILog logger = null)
+            : base(logger)
         {
             this.id = id;
             head = tail = FrameDelay = 0;
@@ -285,9 +282,9 @@ namespace GGPOSharp
         /// Helper method to log information from this class.
         /// </summary>
         /// <param name="msg">String message to output.</param>
-        private void Log(string msg)
+        public override void Log(string msg)
         {
-            Logger.Log($"input q{id} | {msg}");
+            Log($"input q{id} | {msg}");
         }
 
         /// <summary>
